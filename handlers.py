@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 import database as db
 import keyboards as kb
+import ai_engine as ai
 
 def register_handlers(dp):
     @dp.message(Command("start"))
@@ -57,3 +58,14 @@ def register_handlers(dp):
     async def show_profile(message: types.Message):
         lang = db.get_user_lang(message.from_user.id)
         await message.answer(f"👤 <b>Profile</b>\nID: <code>{message.from_user.id}</code>\nLanguage: {lang.upper()}\nBalance: 0 VERO", parse_mode="HTML")
+
+    @dp.message(Command("test"))
+    async def cmd_test(message: types.Message):
+        await message.answer("🔄 Генерирую тестовую новость на всех языках...")
+        res = await ai.analyze_and_style_news("Bitcoin hits new all-time high", "BTC price surged past 100k today amid massive institutional buying.")
+        if res:
+            lang = db.get_user_lang(message.from_user.id)
+            db.save_news(res['ru'], res['en'], res['es'], res['de'], "https://test.com", res['score'])
+            await message.answer(f"✅ Готово! Твоя версия ({lang}):\n\n{res[lang]}", parse_mode="HTML")
+        else:
+            await message.answer("❌ Ошибка ИИ.")
