@@ -5,15 +5,14 @@ from config import ROUTEL_API_KEY, BASE_URL
 
 async def analyze_and_style_news(title, description):
     prompt = (
-        f"ROLE: Elite Crypto Journalist. STYLE: Professional, bold, premium.\n"
+        f"ROLE: Elite Crypto Insider (Style: INVESTMAX/CRYPTO_HD).\n"
         f"NEWS: {title} - {description}\n\n"
-        f"TASK:\n"
-        f"1. Evaluate importance (score 1-10).\n"
-        f"2. Rewrite in Russian. Use bold headers, bullet points, and clean spacing.\n"
-        f"3. Structure: ⚡️ HEADLINE -> • Essence -> • Why it matters -> 💎 VERO VERDICT.\n"
-        f"4. Use emojis sparingly but effectively (📈, 📉, ⚡️, 💎).\n\n"
-        f"OUTPUT JSON ONLY:\n"
-        f"{{\"score\": int, \"content\": \"string\"}}"
+        f"STRICT RULES:\n"
+        f"1. Use crypto slang: 'биток', 'альта', 'эфир', 'сигналы', 'лонг', 'шорт'.\n"
+        f"2. Use tickers: BTC, ETH, SOL instead of full names.\n"
+        f"3. Tone: Sharp, aggressive, professional.\n"
+        f"4. Structure: ⚡️ HEADLINE -> • Essence -> • Why it matters -> 💎 VERO VERDICT.\n"
+        f"5. Output JSON ONLY: {{\"score\": int, \"content\": \"string\"}}"
     )
     
     headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}"}
