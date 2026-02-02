@@ -6,7 +6,7 @@ import sqlite3
 import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiohttp import web
 
 # --- КОНФИГ VERO ---
@@ -42,14 +42,15 @@ def get_users():
     conn.close()
     return users
 
-# --- МЕНЮ ---
+# --- ИНЛАЙН МЕНЮ (САМОЕ НАДЕЖНОЕ) ---
 def main_menu():
-    builder = ReplyKeyboardBuilder()
-    builder.row(types.KeyboardButton(text="📊 Live Report"), types.KeyboardButton(text="💎 VERO Exclusive"))
-    builder.row(types.KeyboardButton(text="📢 Free Feed"), types.KeyboardButton(text="👤 My Profile"))
-    return builder.as_markup(resize_keyboard=True)
-
-# --- ОБРАБОТЧИКИ КНОПОК (ТЕПЕРЬ БУДУТ РАБОТАТЬ) ---
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📊 Live Report", callback_data="report")
+    builder.button(text="💎 VERO Exclusive", callback_data="exclusive")
+    builder.button(text="📢 Free Feed", callback_data="feed")
+    builder.button(text="👤 My Profile", callback_data="profile")
+    builder.adjust(2)
+    return builder.as_markup()
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -62,43 +63,29 @@ async def cmd_start(message: types.Message):
     )
     await message.answer(welcome_text, reply_markup=main_menu(), parse_mode="Markdown")
 
-@dp.message(F.text == "📊 Live Report")
-async def live_report(message: types.Message):
-    text = (
-        "📈 **VERO Live Transparency**\n\n"
-        "💰 Ad Revenue: $0.00\n"
-        "🔥 Buyback Fund: $0.00\n"
-        "💎 Total Distributed: 0 VERO\n"
-        "👥 Holders: 1\n\n"
-        "Вся прибыль идет в график. Мы играем в открытую."
-    )
-    await message.answer(text, parse_mode="Markdown")
+# --- ОБРАБОТЧИКИ НАЖАТИЙ ---
+@dp.callback_query(F.data == "report")
+async def show_report(callback: types.CallbackQuery):
+    text = "📈 **VERO Live Transparency**\n\n💰 Ad Revenue: $0.00\n🔥 Buyback Fund: $0.00\n💎 Total Distributed: 0 VERO\n\nВся прибыль идет в график."
+    await callback.message.answer(text, parse_mode="Markdown")
+    await callback.answer()
 
-@dp.message(F.text == "💎 VERO Exclusive")
-async def exclusive_access(message: types.Message):
-    await message.answer(
-        "🔒 **Доступ закрыт.**\n\n"
-        "Для входа в Exclusive нужно иметь на балансе **1,000,000 VERO**.\n"
-        "Купи актив и качай его вместе с нами.",
-        parse_mode="Markdown"
-    )
+@dp.callback_query(F.data == "exclusive")
+async def show_exclusive(callback: types.CallbackQuery):
+    await callback.message.answer("🔒 **Доступ закрыт.**\n\nНужно иметь на балансе **1,000,000 VERO**.", parse_mode="Markdown")
+    await callback.answer()
 
-@dp.message(F.text == "📢 Free Feed")
-async def free_feed(message: types.Message):
-    await message.answer("📰 **Free Feed:** Главные новости дня приходят сюда автоматически. Ожидай свежую альфу.", parse_mode="Markdown")
+@dp.callback_query(F.data == "feed")
+async def show_feed(callback: types.CallbackQuery):
+    await callback.message.answer("📰 **Free Feed:** Главные новости дня приходят сюда автоматически.", parse_mode="Markdown")
+    await callback.answer()
 
-@dp.message(F.text == "👤 My Profile")
-async def my_profile(message: types.Message):
-    await message.answer(
-        f"👤 **Твой профиль**\n\n"
-        f"🆔 ID: `{message.from_user.id}`\n"
-        f"💰 Баланс: 0 VERO\n\n"
-        f"Welcome Drop скоро! Следи за новостями.",
-        parse_mode="Markdown"
-    )
+@dp.callback_query(F.data == "profile")
+async def show_profile(callback: types.CallbackQuery):
+    await callback.message.answer(f"👤 **Твой профиль**\n\n🆔 ID: `{callback.from_user.id}`\n💰 Баланс: 0 VERO", parse_mode="Markdown")
+    await callback.answer()
 
-# --- АВТОПОСТЕР И ВЕБ-СЕРВЕР (БЕЗ ИЗМЕНЕНИЙ) ---
-
+# --- АВТОПОСТЕР И СЕРВЕР ---
 async def analyze_news_ai(title, description):
     prompt = f"ROLE: VERO Media-Backed Asset Insider. TASK: Sharp, bold crypto post in Russian. NEWS: {title} - {description}. FORMAT: 1. ⚡️ HEADLINE. 2. Essence (bold). 3. 💎 VERO VERDICT. 4. #VERO #Crypto"
     headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}"}
