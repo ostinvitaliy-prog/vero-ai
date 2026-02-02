@@ -17,8 +17,11 @@ def register_handlers(dp):
     @dp.message(F.text == "📢 Free Feed")
     async def show_feed(message: types.Message):
         recent = db.get_recent_news(3)
-        for content, link in recent:
-            await message.answer(f"{content}\n\n🔗 <a href='{link}'>Источник</a>", parse_mode="HTML", disable_web_page_preview=True)
+        if not recent:
+            await message.answer("📰 Новостей пока нет.")
+        else:
+            for content, link in recent:
+                await message.answer(f"{content}\n\n🔗 <a href='{link}'>Источник</a>", parse_mode="HTML", disable_web_page_preview=True)
 
     @dp.message(F.text == "📊 Live Report")
     async def show_report(message: types.Message):
