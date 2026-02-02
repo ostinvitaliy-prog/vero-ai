@@ -18,13 +18,19 @@ async def start_autoposter(bot):
                     if res and res.get('score', 0) >= MIN_NEWS_SCORE:
                         db.save_news(res['ru'], res['en'], res['es'], res['de'], entry.link, res['score'])
                         
+                        # Генерируем одну картинку для всех
+                        image_url = await ai.Image Generation(res.get('image_prompt', 'crypto technology'))
+                        
                         for lang in ['ru', 'en', 'es', 'de']:
                             users = db.get_users_by_lang(lang)
                             for u_id in users:
                                 try:
-                                    await bot.send_message(u_id, f"{res[lang]}\n\n🔗 <a href='{entry.link}'>Source</a>", parse_mode="HTML", disable_web_page_preview=True)
-                                except: 
-                                    pass
+                                    text = f"{res[lang]}\n\n🔗 <a href='{entry.link}'>Source</a>"
+                                    if image_url:
+                                        await bot.send_photo(u_id, image_url, caption=text, parse_mode="HTML")
+                                    else:
+                                        await bot.send_message(u_id, text, parse_mode="HTML", disable_web_page_preview=True)
+                                except: pass
             
             await asyncio.sleep(NEWS_CHECK_INTERVAL)
         except: 
