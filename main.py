@@ -17,7 +17,6 @@ async def main():
     bot = Bot(token='8050168002:AAEnS0NsuVn4-_WZbOLTpluPDP8BCqF3CUQ')
     dp = Dispatcher()
     
-    # ВАЖНО: Передаем dp в обработчики
     handlers.register_handlers(dp)
     
     asyncio.create_task(autoposter.start_autoposter(bot))
