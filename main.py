@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 
 # --- НАСТРОЙКИ ---
-API_TOKEN = '8050168002:AAFLZNI1cEQEX0L96PPks7-Er4BydJ06glA'
+API_TOKEN = '8050168002:AAH_eJ-Cl0YLAPIkxWP9HtQpFA-w_eHBtCs'
 ROUTEL_API_KEY = 's2_4b5416fae8a44bc7b97dd7bd65bb0f3b'
 BASE_URL = "https://routellm.abacus.ai/v1"
 
@@ -18,7 +18,6 @@ async def analyze_news_ai(title, description, lang='ru'):
     prompt = f"Analyze this crypto news for a Telegram post in {lang}. Style: smart, edgy, expert. Title: {title}. Description: {description}. Format: Title, Essence, Market Impact, VERO Verdict, Tags."
     
     headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}", "Content-Type": "application/json"}
-    # ОСТАВЛЯЕМ ТОЛЬКО ТО, ЧТО ТРЕБУЕТ СЕРВЕР
     payload = {
         "model": "gpt-4o-2024-11-20",
         "messages": [{"role": "user", "content": prompt}]
