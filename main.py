@@ -42,7 +42,7 @@ async def analyze_news_ai(title, description, lang='ru'):
 
     headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}", "Content-Type": "application/json"}
     payload = {
-        "model": "openai/gpt-4o", 
+        "model": "gpt-4o", 
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7
     }
