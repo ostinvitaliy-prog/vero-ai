@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 
 # --- НАСТРОЙКИ ---
-API_TOKEN = '8050168002:AAH_eJ-Cl0YLAPIkxWP9HtQpFA-w_eHBtCs'
+API_TOKEN = '8050168002:AAFLZNI1cEQEX0L96PPks7-Er4BydJ06glA'
 ROUTEL_API_KEY = 's2_4b5416fae8a44bc7b97dd7bd65bb0f3b'
 BASE_URL = "https://routellm.abacus.ai/v1"
 
@@ -15,16 +15,22 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
 async def analyze_news_ai(title, description, lang='ru'):
-    prompt = f"Analyze: {title}"
+    prompt = f"Analyze this crypto news for a Telegram post in {lang}. Style: smart, edgy, expert. Title: {title}. Description: {description}. Format: Title, Essence, Market Impact, VERO Verdict, Tags."
+    
     headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}]}
+    payload = {
+        "model": "gpt-4o-2024-11-20",
+        "messages": [{"role": "user", "content": prompt}]
+    }
     
     async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{BASE_URL}/chat/completions", json=payload, headers=headers, timeout=40.0)
-        # ЭТА СТРОКА ПОКАЖЕТ НАМ ТЕКСТ ОШИБКИ ПРЯМО В ТЕЛЕГРАМЕ
-        if resp.status_code != 200:
-            return f"❌ Ошибка {resp.status_code}: {resp.text}"
-        return resp.json()['choices'][0]['message']['content']
+        try:
+            resp = await client.post(f"{BASE_URL}/chat/completions", json=payload, headers=headers, timeout=40.0)
+            if resp.status_code != 200:
+                return f"❌ AI Error {resp.status_code}: {resp.text[:100]}"
+            return resp.json()['choices'][0]['message']['content']
+        except Exception as e:
+            return f"❌ Connection Error: {str(e)[:100]}"
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
