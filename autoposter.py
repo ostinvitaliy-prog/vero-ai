@@ -23,7 +23,8 @@ async def start_autoposter(bot):
                             for u_id in users:
                                 try:
                                     await bot.send_message(u_id, f"{res[lang]}\n\n🔗 <a href='{entry.link}'>Source</a>", parse_mode="HTML", disable_web_page_preview=True)
-                                except: pass
+                                except: 
+                                    pass
             
             await asyncio.sleep(NEWS_CHECK_INTERVAL)
         except: 
