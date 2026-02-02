@@ -29,11 +29,6 @@ def register_handlers(dp):
         }
         
         await callback.message.answer(welcome_texts[lang], parse_mode="HTML", reply_markup=kb.main_menu())
-        
-        recent = db.get_recent_news(lang, 3)
-        for content, link in reversed(recent):
-            await callback.message.answer(f"{content}\n\n🔗 <a href='{link}'>Source</a>", parse_mode="HTML", disable_web_page_preview=True)
-        
         await callback.answer()
 
     @dp.message(F.text == "📢 Free Feed")
@@ -61,11 +56,17 @@ def register_handlers(dp):
 
     @dp.message(Command("test"))
     async def cmd_test(message: types.Message):
-        await message.answer("🔄 Генерирую тестовую новость на всех языках...")
-        res = await ai.analyze_and_style_news("Bitcoin hits new all-time high", "BTC price surged past 100k today amid massive institutional buying.")
+        await message.answer("🔄 Генерирую тестовую новость и КАРТИНКУ...")
+        res = await ai.analyze_and_style_news("Solana ecosystem explodes", "SOL price hits new highs as DEX volume overtakes Ethereum.")
         if res:
+            image_url = await ai.Image Generation(res.get('image_prompt', 'solana crypto'))
             lang = db.get_user_lang(message.from_user.id)
             db.save_news(res['ru'], res['en'], res['es'], res['de'], "https://test.com", res['score'])
-            await message.answer(f"✅ Готово! Твоя версия ({lang}):\n\n{res[lang]}", parse_mode="HTML")
+            
+            text = f"✅ Готово! Твоя версия ({lang}):\n\n{res[lang]}"
+            if image_url:
+                await message.answer_photo(image_url, caption=text, parse_mode="HTML")
+            else:
+                await message.answer(text, parse_mode="HTML")
         else:
             await message.answer("❌ Ошибка ИИ.")
