@@ -59,7 +59,8 @@ def register_handlers(dp):
         await message.answer("🔄 Генерирую тестовую новость и КАРТИНКУ...")
         res = await ai.analyze_and_style_news("Solana ecosystem explodes", "SOL price hits new highs as DEX volume overtakes Ethereum.")
         if res:
-            image_url = await ai.Image Generation(res.get('image_prompt', 'solana crypto'))
+            # ИСПРАВЛЕНО: вызываем image_generation вместо Image Generation
+            image_url = await ai.image_generation(res.get('image_prompt', 'solana crypto'))
             lang = db.get_user_lang(message.from_user.id)
             db.save_news(res['ru'], res['en'], res['es'], res['de'], "https://test.com", res['score'])
             
