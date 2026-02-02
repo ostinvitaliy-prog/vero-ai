@@ -1,8 +1,12 @@
-import os
-
-API_TOKEN = '8050168002:AAEnS0NsuVn4-_WZbOLTpluPDP8BCqF3CUQ'
-ROUTEL_API_KEY = 's2_4b5416fae8a44bc7b97dd7bd65bb0f3b'
-BASE_URL = "https://routellm.abacus.ai/v1"
-DB_NAME = 'vero.db'
-NEWS_CHECK_INTERVAL = 600  # 10 минут
-MIN_NEWS_SCORE = 7         # Порог важности
+@dp.message(Command("test"))
+    async def cmd_test(message: types.Message):
+        await message.answer("🔄 Генерирую тестовую новость на всех языках...")
+        import ai_engine as ai
+        # Тестовые данные
+        res = await ai.analyze_and_style_news("Bitcoin hits new all-time high", "BTC price surged past 100k today amid massive institutional buying.")
+        if res:
+            lang = db.get_user_lang(message.from_user.id)
+            db.save_news(res['ru'], res['en'], res['es'], res['de'], "https://test.com", res['score'])
+            await message.answer(f"✅ Готово! Твоя версия ({lang}):\n\n{res[lang]}", parse_mode="HTML")
+        else:
+            await message.answer("❌ Ошибка ИИ.")
