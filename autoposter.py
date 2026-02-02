@@ -18,8 +18,8 @@ async def start_autoposter(bot):
                     if res and res.get('score', 0) >= MIN_NEWS_SCORE:
                         db.save_news(res['ru'], res['en'], res['es'], res['de'], entry.link, res['score'])
                         
-                        # Генерируем одну картинку для всех
-                        image_url = await ai.Image Generation(res.get('image_prompt', 'crypto technology'))
+                        # ИСПРАВЛЕНО: вызываем image_generation вместо Image Generation
+                        image_url = await ai.image_generation(res.get('image_prompt', 'crypto technology'))
                         
                         for lang in ['ru', 'en', 'es', 'de']:
                             users = db.get_users_by_lang(lang)
