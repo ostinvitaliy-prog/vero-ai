@@ -8,7 +8,7 @@ from aiogram.filters import Command
 
 # --- SETTINGS ---
 API_TOKEN = '8050168002:AAFLZNI1cEQEX0L96PPks7-Er4BydJ06glA'
-ROUTEL_API_KEY = 's2_4b5416fae8a44bc7b97dd7bd65bb0f3b'
+ROUTEL_API_KEY = os.environ.get("s2_4b5416fae8a44bc7b97dd7bd65bb0f3b")
 BASE_URL = "https://routellm.abacus.ai/v1"
 
 logging.basicConfig(level=logging.INFO)
