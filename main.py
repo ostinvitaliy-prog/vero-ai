@@ -7,7 +7,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 
 # --- SETTINGS ---
-API_TOKEN = '8050168002:AAFLZNI1cEQEX0L96PPks7-Er4BydJ06glA'
+API_TOKEN = '8050168002:AAH_eJ-Cl0YLAPIkxWP9HtQpFA-w_eHBtCs'
 ROUTEL_API_KEY = os.environ.get("s2_4b5416fae8a44bc7b97dd7bd65bb0f3b")
 BASE_URL = "https://routellm.abacus.ai/v1"
 
