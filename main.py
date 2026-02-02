@@ -18,6 +18,7 @@ async def analyze_news_ai(title, description, lang='ru'):
     prompt = f"Analyze this crypto news for a Telegram post in {lang}. Style: smart, edgy, expert. Title: {title}. Description: {description}. Format: Title, Essence, Market Impact, VERO Verdict, Tags."
     
     headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}", "Content-Type": "application/json"}
+    # ОСТАВЛЯЕМ ТОЛЬКО ТО, ЧТО ТРЕБУЕТ СЕРВЕР
     payload = {
         "model": "gpt-4o-2024-11-20",
         "messages": [{"role": "user", "content": prompt}]
@@ -25,12 +26,12 @@ async def analyze_news_ai(title, description, lang='ru'):
     
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.post(f"{BASE_URL}/chat/completions", json=payload, headers=headers, timeout=40.0)
+            resp = await client.post(f"{BASE_URL}/chat/completions", json=payload, headers=headers)
             if resp.status_code != 200:
                 return f"❌ AI Error {resp.status_code}: {resp.text[:100]}"
             return resp.json()['choices'][0]['message']['content']
         except Exception as e:
-            return f"❌ Connection Error: {str(e)[:100]}"
+            return f"❌ Error: {str(e)[:50]}"
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
