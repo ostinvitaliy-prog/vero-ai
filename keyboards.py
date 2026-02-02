@@ -1,10 +1,8 @@
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram import types
 
 def main_menu():
-    builder = InlineKeyboardBuilder()
-    builder.button(text="📊 Live Report", callback_data="report")
-    builder.button(text="💎 VERO Exclusive", callback_data="exclusive")
-    builder.button(text="📢 Free Feed", callback_data="feed")
-    builder.button(text="👤 My Profile", callback_data="profile")
-    builder.adjust(2)
-    return builder.as_markup()
+    builder = ReplyKeyboardBuilder()
+    builder.row(types.KeyboardButton(text="📊 Live Report"), types.KeyboardButton(text="💎 VERO Exclusive"))
+    builder.row(types.KeyboardButton(text="📢 Free Feed"), types.KeyboardButton(text="👤 My Profile"))
+    return builder.as_markup(resize_keyboard=True)
