@@ -24,22 +24,25 @@ def get_main_menu():
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     kb = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇺🇸 English")]
+        [KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇺🇸 English")],
+        [KeyboardButton(text="🇪🇸 Español"), KeyboardButton(text="🇩🇪 Deutsch")]
     ], resize_keyboard=True)
     await message.answer("<b>VERO | Media-Backed Asset</b>\n\nChoose language / Выберите язык:", reply_markup=kb, parse_mode="HTML")
 
-@dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇸 English"]))
+@dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch"]))
 async def set_lang(message: types.Message):
-    lang = "ru" if "Русский" in message.text else "en"
+    lang_map = {"🇷🇺 Русский": "ru", "🇺🇸 English": "en", "🇪🇸 Español": "es", "🇩🇪 Deutsch": "de"}
+    lang = lang_map.get(message.text, "en")
     db.save_user(message.from_user.id, lang)
     
-    welcome = (
-        "<b>👋 Добро пожаловать в VERO!</b>\n\n"
-        "Я — твой AI-аналитик. Я превращаю сложный шум рынка в понятные стратегии.\n\n"
-        "🚀 <b>Лови последние 3 разбора:</b>"
-    ) if lang == "ru" else "<b>👋 Welcome to VERO!</b>\n\nHere are the last 3 analyses:"
+    welcome = {
+        "ru": "<b>👋 Добро пожаловать в VERO!</b>\n\nЯ — твой AI-аналитик. Я превращаю сложный шум рынка в понятные стратегии.\n\n🚀 <b>Лови последние 3 разбора:</b>",
+        "en": "<b>👋 Welcome to VERO!</b>\n\nI am your AI analyst. I turn complex market noise into clear strategies.\n\n🚀 <b>Here are the last 3 analyses:</b>",
+        "es": "<b>👋 ¡Bienvenido a VERO!</b>\n\nSoy tu analista de IA. Convierto el ruido complejo del mercado en estrategias claras.\n\n🚀 <b>Aquí tienes los últimos 3 análisis:</b>",
+        "de": "<b>👋 Willkommen bei VERO!</b>\n\nIch bin dein KI-Analyst. Ich verwandle komplexes Marktrauschen in klare Strategien.\n\n🚀 <b>Hier sind die letzten 3 Analysen:</b>"
+    }
     
-    await message.answer(welcome, reply_markup=get_main_menu(), parse_mode="HTML")
+    await message.answer(welcome.get(lang, welcome["en"]), reply_markup=get_main_menu(), parse_mode="HTML")
     
     sent = 0
     for source_name, feed_url in RSS_FEEDS.items():
@@ -50,7 +53,6 @@ async def set_lang(message: types.Message):
             analysis = await analyze_and_style_news(entry.title, entry.summary[:400], lang, source_name)
             img = await extract_image_from_source(entry.link)
             
-            # Если AI ответил - шлем анализ, если нет - хотя бы заголовок и ссылку
             text = analysis if analysis else f"💎 <b>{entry.title.upper()}</b>\n\n{entry.link}\n\n📰 Источник: {source_name}"
             
             try:
@@ -63,7 +65,7 @@ async def set_lang(message: types.Message):
 
 @dp.message(F.text == "🧠 VERO News Analysis")
 async def btn_analysis(message: types.Message):
-    await message.answer("🧠 <b>Анализ новостей</b>\n\nНовые разборы приходят автоматически каждые 10 минут.", parse_mode="HTML")
+    await message.answer("🧠 <b>VERO News Analysis</b>\n\nНовые разборы приходят автоматически каждые 10 минут.", parse_mode="HTML")
 
 @dp.message(F.text == "📊 Live Report")
 async def btn_report(message: types.Message):
@@ -75,15 +77,15 @@ async def btn_exclusive(message: types.Message):
 
 @dp.message(F.text == "ℹ️ About VERO")
 async def btn_about(message: types.Message):
-    await message.answer("ℹ️ <b>О проекте VERO</b>\n\nVERO — это медиа-актив, где доходы от рекламы идут на выкуп токена.", parse_mode="HTML")
+    await message.answer("ℹ️ <b>About VERO</b>\n\nVERO — это медиа-актив, где доходы от рекламы идут на выкуп токена.", parse_mode="HTML")
 
 @dp.message(F.text == "👤 My Profile")
 async def btn_profile(message: types.Message):
-    await message.answer(f"👤 <b>Профиль</b>\n\nID: <code>{message.from_user.id}</code>\nСтатус: Free User", parse_mode="HTML")
+    await message.answer(f"👤 <b>Profile</b>\n\nID: <code>{message.from_user.id}</code>\nStatus: Free User", parse_mode="HTML")
 
 @dp.message(F.text == "⚙️ Settings")
 async def btn_settings(message: types.Message):
-    await message.answer("⚙️ <b>Настройки</b>\n\nИспользуйте /start для смены языка.", parse_mode="HTML")
+    await message.answer("⚙️ <b>Settings</b>\n\nИспользуйте /start для смены языка.", parse_mode="HTML")
 
 async def handle(request): return web.Response(text="Alive")
 
