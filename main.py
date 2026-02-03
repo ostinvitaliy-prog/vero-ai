@@ -14,8 +14,6 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-LANG_CHOICES = ["🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch"]
-
 def get_lang_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -44,331 +42,92 @@ def get_settings_menu():
             [KeyboardButton(text="🙈 Hide Keyboard"), KeyboardButton(text="📌 Show Menu")],
             [KeyboardButton(text="⬅️ Back")]
         ],
-        resize_keyboard=True,
-        is_persistent=True
+        resize_keyboard=True
     )
 
 WELCOME_MESSAGES = {
-    "ru": """👋 <b>Добро пожаловать в VERO</b>
-
-VERO — это AI-медиа о криптовалютах и Web3.
-Мы не просто показываем новости — мы объясняем, что они значат и для кого они важны.
-
-🧠 <b>Что вы получаете:</b>
-• Отбор ключевых новостей
-• Краткий разбор без шума
-• 2 сценария развития событий
-• Мнение VERO AI
-
-Это <b>новостная аналитика</b>, а не обзор рынка.
-Без сигналов. Без пампа. Только смысл.
-""",
-    "en": """👋 <b>Welcome to VERO</b>
-
-VERO is an AI-powered crypto & Web3 media.
-We don't just show news — we explain what it means and who should care.
-
-🧠 <b>What you get:</b>
-• Curated key news
-• Clean breakdown without noise
-• 2 development scenarios
-• VERO AI verdict
-
-This is <b>news intelligence</b>, not a market overview.
-No signals. No hype. Just meaning.
-""",
-    "es": """👋 <b>Bienvenido a VERO</b>
-
-VERO es un medio de cripto y Web3 impulsado por IA.
-No solo mostramos noticias — explicamos qué significan y para quién son importantes.
-
-🧠 <b>Lo que obtienes:</b>
-• Selección de noticias clave
-• Análisis claro sin ruido
-• 2 escenarios de desarrollo
-• Veredicto de VERO AI
-
-Esto es <b>inteligencia de noticias</b>, no resumen de mercado.
-Sin señales. Sin hype. Solo significado.
-""",
-    "de": """👋 <b>Willkommen bei VERO</b>
-
-VERO ist ein KI-gestütztes Krypto- & Web3-Medium.
-Wir zeigen nicht nur Nachrichten — wir erklären, was sie bedeuten und für wen sie wichtig sind.
-
-🧠 <b>Was Sie bekommen:</b>
-• Kuratierte Schlüsselnachrichten
-• Klare Analyse ohne Rauschen
-• 2 Entwicklungsszenarien
-• VERO AI Urteil
-
-Dies ist <b>News Intelligence</b>, keine Marktübersicht.
-Keine Signale. Kein Hype. Nur Bedeutung.
-"""
+    "ru": "👋 <b>Добро пожаловать в VERO</b>\n\nVERO — это AI-медиа о криптовалютах. Мы объясняем смысл новостей.\n\n🧠 <b>Что вы получаете:</b>\n• Отбор ключевых новостей\n• Краткий разбор и 2 сценария\n• Мнение VERO AI\n\nЭто новостная аналитика. Только смысл.",
+    "en": "👋 <b>Welcome to VERO</b>\n\nVERO is an AI-powered crypto media. We explain the meaning behind the news.\n\n🧠 <b>What you get:</b>\n• Curated key news\n• Breakdown and 2 scenarios\n• VERO AI verdict\n\nThis is news intelligence. Just meaning."
 }
-
-ABOUT_MESSAGES = {
-    "ru": """ℹ️ <b>О проекте VERO</b>
-
-<b>VERO | Media-Backed Asset</b>
-
-VERO — это медиа-актив, обеспеченный реальной экономикой.
-
-🔹 <b>Как это работает:</b>
-1) VERO AI отбирает и разбирает важные новости.
-2) Реклама → доход → buyback токенов VERO → распределение холдерам.
-3) Прозрачность: отчёты в Live Report.
-4) Exclusive: доступ для держателей (порог зададим позже).
-
-🎯 <b>Цель:</b> создать медиа, которое растёт с аудиторией и создаёт ценность держателям.
-""",
-    "en": """ℹ️ <b>About VERO</b>
-
-<b>VERO | Media-Backed Asset</b>
-
-VERO is a media asset backed by real economics.
-
-How it works:
-1) VERO AI curates and explains key news.
-2) Ads → revenue → VERO buybacks → distributions to holders.
-3) Transparency in Live Report.
-4) Exclusive for holders (threshold configurable later).
-
-Goal: build media that grows with the audience and creates value for holders.
-""",
-    "es": """ℹ️ <b>Sobre VERO</b>
-
-<b>VERO | Media-Backed Asset</b>
-
-VERO es un activo mediático respaldado por economía real.
-
-Cómo funciona:
-1) VERO AI selecciona y explica noticias clave.
-2) Anuncios → ingresos → recompra de VERO → distribución a holders.
-3) Transparencia en Live Report.
-4) Exclusive para holders (umbral configurable después).
-
-Objetivo: construir un medio que crezca con la audiencia y cree valor para holders.
-""",
-    "de": """ℹ️ <b>Über VERO</b>
-
-<b>VERO | Media-Backed Asset</b>
-
-VERO ist ein Medien-Asset, das durch echte Wirtschaft gedeckt ist.
-
-Wie es funktioniert:
-1) VERO AI kuratiert und erklärt wichtige News.
-2) Werbung → Einnahmen → VERO Rückkäufe → Ausschüttung an Holder.
-3) Transparenz im Live Report.
-4) Exclusive für Holder (Schwelle später konfigurierbar).
-
-Ziel: ein Medium aufbauen, das mit dem Publikum wächst und Wert für Holder schafft.
-"""
-}
-
-def onboarding_header(lang: str) -> str:
-    if lang == "ru":
-        return "🗞 <b>Вот последние 3 новости.</b>\nОстальные будут добавляться по мере поступления.\n"
-    if lang == "es":
-        return "🗞 <b>Aquí están las últimas 3 noticias.</b>\nEl resto se añadirá a medida que lleguen.\n"
-    if lang == "de":
-        return "🗞 <b>Hier sind die letzten 3 News.</b>\nWeitere kommen automatisch, sobald sie erscheinen.\n"
-    return "🗞 <b>Here are the latest 3 news.</b>\nMore will be added as they come in.\n"
-
-def fallback_post(entry, lang: str) -> str:
-    # Без AI: просто “топовый” минимальный формат (заголовок + ссылка)
-    # Можно потом улучшить (эмодзи/1-2 строки), но главное — чтобы не было тишины.
-    if lang == "ru":
-        return f"📰 <b>{entry.title}</b>\n\n🔗 <a href='{entry.link}'>Читать оригинал</a>"
-    if lang == "es":
-        return f"📰 <b>{entry.title}</b>\n\n🔗 <a href='{entry.link}'>Leer fuente</a>"
-    if lang == "de":
-        return f"📰 <b>{entry.title}</b>\n\n🔗 <a href='{entry.link}'>Quelle lesen</a>"
-    return f"📰 <b>{entry.title}</b>\n\n🔗 <a href='{entry.link}'>Read source</a>"
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer(
-        "<b>VERO | Media-Backed Asset</b>\n\nChoose your language / Выберите язык:",
-        reply_markup=get_lang_keyboard(),
-        parse_mode="HTML"
-    )
+    await message.answer("<b>VERO | Media-Backed Asset</b>\n\nChoose language / Выберите язык:", reply_markup=get_lang_keyboard(), parse_mode="HTML")
 
-@dp.message(F.text.in_(LANG_CHOICES))
+@dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch"]))
 async def set_language(message: types.Message):
     lang_map = {"🇷🇺 Русский": "ru", "🇺🇸 English": "en", "🇪🇸 Español": "es", "🇩🇪 Deutsch": "de"}
     lang = lang_map.get(message.text, "en")
     db.save_user(message.from_user.id, lang)
 
     await message.answer(WELCOME_MESSAGES.get(lang, WELCOME_MESSAGES["en"]), parse_mode="HTML", reply_markup=get_main_menu())
-    await message.answer(onboarding_header(lang), parse_mode="HTML", disable_web_page_preview=True)
+    
+    header = "🗞 <b>Вот последние 3 новости:</b>" if lang == "ru" else "🗞 <b>Here are the latest 3 news:</b>"
+    await message.answer(header, parse_mode="HTML")
 
-    # Гарантированно выдаём 3 новости:
-    # - Сначала пробуем AI-формат (если RouteLLM работает)
-    # - Если AI не работает/403 — отправляем fallback, но всё равно 3 штуки
     sent = 0
-
     for feed_url in RSS_FEEDS:
-        if sent >= 3:
-            break
-
+        if sent >= 3: break
         feed = feedparser.parse(feed_url)
-        entries = getattr(feed, "entries", []) or []
-        if not entries:
-            continue
+        for entry in feed.entries[:10]:
+            if sent >= 3: break
+            if db.is_news_posted(entry.link): continue
 
-        for entry in entries[:10]:
-            if sent >= 3:
-                break
-
-            # Пропускаем дубли (если уже в базе)
-            if hasattr(entry, "link") and entry.link and db.is_news_posted(entry.link):
-                continue
-
-            try:
-                analysis = await analyze_and_style_news(entry.title, getattr(entry, "summary", "")[:400], entry.link)
-
-                # Если AI вернул нормальный пост на нужном языке — отправляем его
-                if analysis and analysis.get(lang):
-                    post_text = analysis.get(lang)
-                    final_post = f"{post_text}\n\n🔗 <a href='{entry.link}'>Source</a>"
-                    await message.answer(final_post, parse_mode="HTML", disable_web_page_preview=False)
-
-                    # Сохраняем, чтобы не повторять
-                    try:
-                        db.save_news(
-                            analysis.get("ru", ""),
-                            analysis.get("en", ""),
-                            analysis.get("es", ""),
-                            analysis.get("de", ""),
-                            entry.link,
-                            int(analysis.get("score", 7)) if str(analysis.get("score", "")).isdigit() else 7
-                        )
-                    except Exception as e:
-                        logging.error(f"DB save_news failed: {e}")
-
-                else:
-                    # AI не сработал — отправляем fallback, но всё равно красиво и быстро
-                    await message.answer(fallback_post(entry, lang), parse_mode="HTML", disable_web_page_preview=False)
-
-                # Помечаем как “отправлено”, чтобы реально было 3
-                sent += 1
-                await asyncio.sleep(1)
-
-            except Exception as e:
-                logging.error(f"Onboarding news error: {e}")
-                # Даже если тут исключение — пытаемся fallback как последний шанс
-                try:
-                    await message.answer(fallback_post(entry, lang), parse_mode="HTML", disable_web_page_preview=False)
-                    sent += 1
-                    await asyncio.sleep(1)
-                except Exception:
-                    pass
-
-    if sent < 3:
-        # Если источники пустые/битые — честно говорим
-        if lang == "ru":
-            await message.answer("⚠️ Сейчас источники обновляются. Новые новости придут автоматически, как только появятся.")
-        else:
-            await message.answer("⚠️ Sources are updating. New news will arrive automatically as soon as they appear.")
+            analysis = await analyze_and_style_news(entry.title, entry.summary[:300], entry.link)
+            if analysis and analysis.get(lang):
+                await message.answer(f"{analysis[lang]}\n\n🔗 <a href='{entry.link}'>Source</a>", parse_mode="HTML")
+            else:
+                await message.answer(f"📰 <b>{entry.title}</b>\n\n🔗 <a href='{entry.link}'>Source</a>", parse_mode="HTML")
+            
+            sent += 1
+            await asyncio.sleep(1)
 
 @dp.message(F.text == "⚙️ Settings")
 async def show_settings(message: types.Message):
-    lang = db.get_user_language(message.from_user.id) or "en"
-    if lang == "ru":
-        txt = "⚙️ <b>Настройки</b>\n\nЧто хотите изменить?"
-    elif lang == "es":
-        txt = "⚙️ <b>Configuración</b>\n\n¿Qué quieres cambiar?"
-    elif lang == "de":
-        txt = "⚙️ <b>Einstellungen</b>\n\nWas möchten Sie ändern?"
-    else:
-        txt = "⚙️ <b>Settings</b>\n\nWhat would you like to change?"
-    await message.answer(txt, parse_mode="HTML", reply_markup=get_settings_menu())
-
-@dp.message(F.text == "🌍 Change Language")
-async def change_language(message: types.Message):
-    lang = db.get_user_language(message.from_user.id) or "en"
-    txt = {
-        "ru": "🌍 <b>Смена языка</b>\nВыберите язык:",
-        "en": "🌍 <b>Change language</b>\nChoose language:",
-        "es": "🌍 <b>Cambiar idioma</b>\nElige idioma:",
-        "de": "🌍 <b>Sprache ändern</b>\nSprache wählen:"
-    }.get(lang, "🌍 <b>Change language</b>\nChoose language:")
-    await message.answer(txt, parse_mode="HTML", reply_markup=get_lang_keyboard())
+    await message.answer("⚙️ Settings / Настройки:", reply_markup=get_settings_menu())
 
 @dp.message(F.text == "🙈 Hide Keyboard")
-async def hide_keyboard(message: types.Message):
-    lang = db.get_user_language(message.from_user.id) or "en"
-    txt = {
-        "ru": "🙈 Кнопки скрыты. Чтобы вернуть меню — нажмите <b>📌 Show Menu</b> (или отправьте /start).",
-        "en": "🙈 Keyboard hidden. To bring back the menu press <b>📌 Show Menu</b> (or send /start).",
-        "es": "🙈 Teclado oculto. Para volver al menú pulsa <b>📌 Show Menu</b> (o envía /start).",
-        "de": "🙈 Tastatur ausgeblendet. Um das Menü zurückzubringen, drücken Sie <b>📌 Show Menu</b> (oder /start)."
-    }.get(lang, "🙈 Keyboard hidden. To bring back the menu press <b>📌 Show Menu</b> (or /start).")
-    await message.answer(txt, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+async def hide_kb(message: types.Message):
+    await message.answer("🙈 Keyboard hidden. Use /start or <b>📌 Show Menu</b> to return.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
 
 @dp.message(F.text == "📌 Show Menu")
-async def show_menu(message: types.Message):
-    lang = db.get_user_language(message.from_user.id) or "en"
-    txt = {
-        "ru": "📌 Меню возвращено.",
-        "en": "📌 Menu restored.",
-        "es": "📌 Menú restaurado.",
-        "de": "📌 Menü wiederhergestellt."
-    }.get(lang, "📌 Menu restored.")
-    await message.answer(txt, reply_markup=get_main_menu())
+async def show_kb(message: types.Message):
+    await message.answer("📌 Menu restored.", reply_markup=get_main_menu())
 
 @dp.message(F.text == "⬅️ Back")
-async def back_to_menu(message: types.Message):
+async def back(message: types.Message):
     await message.answer("⬅️", reply_markup=get_main_menu())
 
-@dp.message(F.text == "ℹ️ About VERO")
-async def show_about(message: types.Message):
-    lang = db.get_user_language(message.from_user.id) or "en"
-    await message.answer(ABOUT_MESSAGES.get(lang, ABOUT_MESSAGES["en"]), parse_mode="HTML", disable_web_page_preview=True)
-
 @dp.message(F.text == "🧠 VERO News Analysis")
-async def show_feed(message: types.Message):
-    lang = db.get_user_language(message.from_user.id) or "en"
-    txt = {
-        "ru": "🧠 <b>VERO News Analysis</b>\n\nЭто основной поток новостной аналитики. Новые разборы приходят автоматически по мере появления важных событий.",
-        "en": "🧠 <b>VERO News Analysis</b>\n\nThis is the main news analysis stream. New breakdowns arrive automatically as important events happen.",
-        "es": "🧠 <b>VERO News Analysis</b>\n\nEste es el flujo principal de análisis. Nuevos resúmenes llegan automáticamente cuando ocurren eventos importantes.",
-        "de": "🧠 <b>VERO News Analysis</b>\n\nDies ist der Hauptstream. Neue Analysen kommen automatisch, sobald wichtige Ereignisse passieren."
-    }.get(lang, "🧠 <b>VERO News Analysis</b>\n\nNew breakdowns arrive automatically.")
-    await message.answer(txt, parse_mode="HTML")
+async def news_info(message: types.Message):
+    await message.answer("🧠 <b>VERO News Analysis</b>\n\nНовые разборы приходят сюда автоматически.", parse_mode="HTML")
+
+@dp.message(F.text == "ℹ️ About VERO")
+async def about_info(message: types.Message):
+    await message.answer("ℹ️ <b>About VERO</b>\n\nVERO — это медиа-актив, обеспеченный реальной экономикой.", parse_mode="HTML")
 
 @dp.message(F.text == "📊 Live Report")
-async def show_report(message: types.Message):
-    await message.answer(
-        "📈 <b>VERO Live Transparency</b>\n\nAd Revenue: $0.00\nBuyback Fund: $0.00\nTotal Burned: 0 VERO",
-        parse_mode="HTML"
-    )
+async def report(message: types.Message):
+    await message.answer("📈 <b>Live Report</b>\n\nAd Revenue: $0.00", parse_mode="HTML")
 
 @dp.message(F.text == "👤 My Profile")
-async def show_profile(message: types.Message):
+async def profile(message: types.Message):
     await message.answer(f"👤 <b>Profile</b>\nID: {message.from_user.id}", parse_mode="HTML")
 
 @dp.message(F.text == "💎 VERO Exclusive")
-async def show_exclusive(message: types.Message):
-    await message.answer(
-        "🔒 <b>Access Denied.</b>\n\nRequires 1,000,000 VERO tokens to unlock Exclusive Feed.",
-        parse_mode="HTML"
-    )
+async def exclusive(message: types.Message):
+    await message.answer("🔒 Requires 1,000,000 VERO.", parse_mode="HTML")
 
 async def handle(request):
-    return web.Response(text="VERO Engine Alive")
+    return web.Response(text="Alive")
 
 async def main():
     db.init_db()
-
     app = web.Application()
     app.router.add_get("/", handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 10000)
-    asyncio.create_task(site.start())
-
+    await web.TCPSite(runner, "0.0.0.0", 10000).start()
     asyncio.create_task(start_autoposter(bot))
     await dp.start_polling(bot)
 
