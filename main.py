@@ -62,30 +62,31 @@ async def set_language(message: types.Message):
 
     await message.answer(WELCOME_MESSAGES.get(lang, WELCOME_MESSAGES["en"]), parse_mode="HTML", reply_markup=get_main_menu())
     
-    header = "🗞 <b>Вот последние 3 новости в формате VERO AI:</b>" if lang == "ru" else "🗞 <b>Latest 3 news in VERO AI format:</b>"
-    await message.answer(header, parse_mode="HTML")
+    header = "🗞 <b>Анализирую последние новости через VERO AI...</b>" if lang == "ru" else "🗞 <b>Analyzing latest news via VERO AI...</b>"
+    status_msg = await message.answer(header, parse_mode="HTML")
 
     sent = 0
-    # Берем новости и ЖДЕМ анализа
     for feed_url in RSS_FEEDS:
         if sent >= 3: break
         feed = feedparser.parse(feed_url)
         for entry in feed.entries[:10]:
             if sent >= 3: break
             
-            # Пытаемся получить именно AI формат
-            analysis = await analyze_and_style_news(entry.title, entry.summary[:400], entry.link)
+            # Ждем анализа (до 3 попыток)
+            analysis = None
+            for _ in range(2):
+                analysis = await analyze_and_style_news(entry.title, entry.summary[:400], entry.link)
+                if analysis: break
+                await asyncio.sleep(1)
             
             if analysis and analysis.get(lang):
                 await message.answer(f"{analysis[lang]}\n\n🔗 <a href='{entry.link}'>Source</a>", parse_mode="HTML", disable_web_page_preview=False)
                 sent += 1
-                # Сохраняем в базу чтобы не дублировать в автопостинге
                 db.save_news(analysis.get('ru'), analysis.get('en'), analysis.get('es'), analysis.get('de'), entry.link, 7)
-            else:
-                # Если AI совсем не ответил, пробуем следующую новость, чтобы не слать пустой RSS
-                continue
             
             await asyncio.sleep(1)
+    
+    await status_msg.delete()
 
 @dp.message(F.text == "⚙️ Settings")
 async def show_settings(message: types.Message):
@@ -128,11 +129,15 @@ async def handle(request):
 
 async def main():
     db.init_db()
+    # Удаляем вебхук перед стартом, чтобы избежать ConflictError
+    await bot.delete_webhook(drop_pending_updates=True)
+    
     app = web.Application()
     app.router.add_get("/", handle)
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", 10000).start()
+    
     asyncio.create_task(start_autoposter(bot))
     await dp.start_polling(bot)
 
