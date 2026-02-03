@@ -4,40 +4,49 @@ import logging
 from config import ROUTEL_API_KEY, BASE_URL
 
 async def analyze_and_style_news(title, description, lang):
-    # Словарь для адаптации заголовков под язык
-    headers_map = {
-        "ru": {"summary": "🧠 VERO AI SUMMARY", "insight": "📊 VERO INSIGHT", "mean": "Что это значит", "who": "Для кого важно", "scen": "Сценарии"},
-        "en": {"summary": "🧠 VERO AI SUMMARY", "insight": "📊 VERO INSIGHT", "mean": "What it means", "who": "Who it matters for", "scen": "Scenarios"},
-        "es": {"summary": "🧠 VERO AI RESUMEN", "insight": "📊 VERO INSIGHT", "mean": "Qué означает", "who": "Para quién importa", "scen": "Escenarios"},
-        "de": {"summary": "🧠 VERO AI ZUSAMMENFASSUNG", "insight": "📊 VERO INSIGHT", "mean": "Was es bedeutet", "who": "Für wen es важно", "scen": "Szenarien"}
-    }
-    h = headers_map.get(lang, headers_map["en"])
-
-    prompt = f"""You are VERO AI — an elite crypto media editor. 
-Analyze this news for a {lang} audience.
-
+    # Промпт с жесткой структурой и примером
+    prompt = f"""You are VERO AI. Analyze this crypto news for a {lang} audience.
 News: {title} - {description}
 
-Format your response EXACTLY like this (no extra words, no bold labels like 'Title:'):
-<b>{title}</b>
+STRICT FORMAT RULES:
+1. TRANSLATE the title and all content to {lang}.
+2. Use simple language for non-crypto people.
+3. Add empty lines between blocks for readability.
 
-{description[:200]}...
+STRUCTURE:
+💎 <b>[TITLE IN CAPS AND {lang}]</b>
 
-{h['summary']}
-• <b>{h['mean']}:</b> [1 sentence]
-• <b>{h['who']}:</b> [List]
-• <b>{h['scen']}:</b> 
-✅ <b>Bull:</b> [Scenario]
-⚠️ <b>Bear:</b> [Scenario]
+[2-3 sentences: Who, what, where, when, how much. Use {lang}.]
 
-{h['insight']}
-[Your final elite conclusion]"""
+🧠 <b>VERO AI SUMMARY</b>
 
-    headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}", "Content-Type": "application/json"}
+<b>Что это значит:</b>
+[Simple explanation of impact in 1-2 sentences]
+
+<b>Для кого важно:</b>
+• <b>[Group 1]:</b> [Specific action or risk for them]
+• <b>[Group 2]:</b> [Specific action or risk for them]
+• <b>[Group 3]:</b> [Specific action or risk for them]
+
+<b>Сценарии:</b>
+
+✅ <b>[Positive Scenario Name]</b> — вероятность [X]%
+[Description of what happens]
+
+⚠️ <b>[Negative Scenario Name]</b> — вероятность [Y]%
+[Description of what happens]
+
+Return ONLY the formatted text in {lang}. No extra labels."""
+
+    headers = {
+        "Authorization": f"Bearer {ROUTEL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
     payload = {
         "model": "gpt-4o", 
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.4
+        "temperature": 0.3
     }
 
     try:
