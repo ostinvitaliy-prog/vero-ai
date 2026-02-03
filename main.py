@@ -27,7 +27,7 @@ def get_lang_keyboard():
 def get_main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🤖 VERO AI"), KeyboardButton(text="📊 Live Report")],
+            [KeyboardButton(text="🤖 VERO AI News Feed"), KeyboardButton(text="📊 Live Report")],
             [KeyboardButton(text="💎 VERO Exclusive"), KeyboardButton(text="👤 My Profile")]
         ],
         resize_keyboard=True,
