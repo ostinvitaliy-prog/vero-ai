@@ -3,65 +3,43 @@ import logging
 import feedparser
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import database as db
 from config import BOT_TOKEN
 from autoposter import start_autoposter, RSS_FEEDS
 from ai_engine import analyze_and_style_news, extract_image_from_source
 from aiohttp import web
 
-# 1. Сначала логи и инициализация бота
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# 2. Функции меню
 def get_main_menu():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🧠 VERO News Analysis"), KeyboardButton(text="📊 Live Report")],
-            [KeyboardButton(text="💎 VERO Exclusive"), KeyboardButton(text="ℹ️ About VERO")],
-            [KeyboardButton(text="👤 My Profile"), KeyboardButton(text="⚙️ Settings")]
-        ],
-        resize_keyboard=True
-    )
+    return ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="🧠 VERO News Analysis"), KeyboardButton(text="📊 Live Report")],
+        [KeyboardButton(text="💎 VERO Exclusive"), KeyboardButton(text="ℹ️ About VERO")],
+        [KeyboardButton(text="👤 My Profile"), KeyboardButton(text="⚙️ Settings")]
+    ], resize_keyboard=True)
 
-def get_settings_menu():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🌍 Change Language"), KeyboardButton(text="🙈 Hide Keyboard")],
-            [KeyboardButton(text="⬅️ Back")]
-        ],
-        resize_keyboard=True
-    )
-
-# 3. Хендлеры (теперь dp уже определен выше, ошибки не будет)
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇺🇸 English")],
-            [KeyboardButton(text="🇪🇸 Español"), KeyboardButton(text="🇩🇪 Deutsch")]
-        ], 
-        resize_keyboard=True
-    )
+    kb = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇺🇸 English")]
+    ], resize_keyboard=True)
     await message.answer("<b>VERO | Media-Backed Asset</b>\n\nChoose language / Выберите язык:", reply_markup=kb, parse_mode="HTML")
 
-@dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch"]))
+@dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇸 English"]))
 async def set_lang(message: types.Message):
-    lang_map = {"🇷🇺 Русский": "ru", "🇺🇸 English": "en", "🇪🇸 Español": "es", "🇩🇪 Deutsch": "de"}
-    lang = lang_map.get(message.text, "en")
+    lang = "ru" if "Русский" in message.text else "en"
     db.save_user(message.from_user.id, lang)
     
-    welcome = {
-        "ru": "👋 Добро пожаловать в VERO!",
-        "en": "👋 Welcome to VERO!",
-        "es": "👋 ¡Bienvenido a VERO!",
-        "de": "👋 Willkommen bei VERO!"
-    }
-    await message.answer(welcome[lang], reply_markup=get_main_menu())
+    welcome = (
+        "<b>👋 Добро пожаловать в VERO!</b>\n\n"
+        "Я — твой AI-аналитик. Я превращаю сложный шум рынка в понятные стратегии.\n\n"
+        "🚀 <b>Лови последние 3 разбора:</b>"
+    ) if lang == "ru" else "<b>👋 Welcome to VERO!</b>\n\nHere are the last 3 analyses:"
     
-    msg = await message.answer("⏳ Анализирую последние новости..." if lang == "ru" else "⏳ Analyzing news...")
+    await message.answer(welcome, reply_markup=get_main_menu(), parse_mode="HTML")
     
     sent = 0
     for source_name, feed_url in RSS_FEEDS.items():
@@ -71,30 +49,36 @@ async def set_lang(message: types.Message):
             if sent >= 3: break
             analysis = await analyze_and_style_news(entry.title, entry.summary[:400], lang, source_name)
             img = await extract_image_from_source(entry.link)
-            text = analysis if analysis else f"📢 <b>{entry.title}</b>\n\n{entry.link}"
-            try:
-                if img:
-                    await message.answer_photo(img, caption=text[:1024], parse_mode="HTML")
-                else:
-                    await message.answer(text, parse_mode="HTML")
+            if analysis:
+                if img: await message.answer_photo(img)
+                await message.answer(analysis, parse_mode="HTML")
                 sent += 1
-            except: continue
-            await asyncio.sleep(1)
-    await msg.delete()
+                await asyncio.sleep(1)
 
-@dp.message(F.text == "⚙️ Settings")
-async def settings(message: types.Message):
-    await message.answer("Settings:", reply_markup=get_settings_menu())
-
-@dp.message(F.text == "⬅️ Back")
-async def back(message: types.Message):
-    await message.answer("Main Menu", reply_markup=get_main_menu())
+@dp.message(F.text == "🧠 VERO News Analysis")
+async def btn_analysis(message: types.Message):
+    await message.answer("🧠 <b>Анализ новостей</b>\n\nНовые разборы приходят автоматически каждые 10-15 минут.", parse_mode="HTML")
 
 @dp.message(F.text == "📊 Live Report")
-async def report(message: types.Message):
-    await message.answer("📊 <b>Live Report</b>\n\nAd Revenue: $0.00\nBuyback Fund: $0.00", parse_mode="HTML")
+async def btn_report(message: types.Message):
+    await message.answer("📊 <b>Live Report</b>\n\nAd Revenue: $0.00\nBuyback Fund: $0.00\nTotal Burned: 0 VERO", parse_mode="HTML")
 
-# 4. Запуск сервера и бота
+@dp.message(F.text == "💎 VERO Exclusive")
+async def btn_exclusive(message: types.Message):
+    await message.answer("💎 <b>VERO Exclusive</b>\n\nДоступ закрыт. Требуется 1,000,000 VERO на балансе.", parse_mode="HTML")
+
+@dp.message(F.text == "ℹ️ About VERO")
+async def btn_about(message: types.Message):
+    await message.answer("ℹ️ <b>О проекте VERO</b>\n\nVERO — это медиа-актив, где доходы от рекламы идут на выкуп токена.", parse_mode="HTML")
+
+@dp.message(F.text == "👤 My Profile")
+async def btn_profile(message: types.Message):
+    await message.answer(f"👤 <b>Профиль</b>\n\nID: <code>{message.from_user.id}</code>\nСтатус: Free User", parse_mode="HTML")
+
+@dp.message(F.text == "⚙️ Settings")
+async def btn_settings(message: types.Message):
+    await message.answer("⚙️ <b>Настройки</b>\n\nИспользуйте /start для смены языка.", parse_mode="HTML")
+
 async def handle(request): return web.Response(text="Alive")
 
 async def main():
