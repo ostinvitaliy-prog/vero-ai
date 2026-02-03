@@ -27,7 +27,7 @@ def get_lang_keyboard():
 def get_main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🤖 VERO AI News Feed"), KeyboardButton(text="📊 Live Report")],
+            [KeyboardButton(text="🤖 VERO AI"), KeyboardButton(text="📊 Live Report")],
             [KeyboardButton(text="💎 VERO Exclusive"), KeyboardButton(text="👤 My Profile")]
         ],
         resize_keyboard=True,
@@ -49,40 +49,52 @@ async def set_language(message: types.Message):
     db.save_user(message.from_user.id, lang)
     
     await message.answer(
-        f"🦾 <b>VERO AI активирован.</b>\n\nДобро пожаловать в будущее медиа-активов. Сейчас я подберу для вас 3 актуальных обзора рынка...", 
+        "🦾 <b>VERO AI активирован.</b>\n\nПодбираю для вас 3 актуальных разбора рынка...", 
         parse_mode="HTML", 
         reply_markup=get_main_menu()
     )
 
-    # Срочный подбор 3 новостей
     count = 0
     for feed_url in RSS_FEEDS:
         if count >= 3: break
         try:
             feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:3]:
+            for entry in feed.entries[:5]:
                 if count >= 3: break
                 
-                # Пытаемся получить анализ от AI
                 analysis = await analyze_and_style_news(entry.title, entry.summary[:300], entry.link)
                 
-                if analysis and lang in analysis:
-                    text = analysis.get(lang)
-                    await message.answer(f"{text}\n\n🔗 <a href='{entry.link}'>Источник</a>", 
-                                         parse_mode="HTML", disable_web_page_preview=True)
-                else:
-                    # Если AI подвел, даем хотя бы заголовок, чтобы не было тишины
-                    await message.answer(f"📢 <b>{entry.title}</b>\n\n{entry.summary[:200]}...\n\n🔗 <a href='{entry.link}'>Читать оригинал</a>", 
-                                         parse_mode="HTML")
-                
-                count += 1
-                await asyncio.sleep(1)
+                if analysis and analysis.get('score', 0) >= 7:
+                    # Берём уже готовый отформатированный текст из AI
+                    post_text = analysis.get(lang, analysis.get('en', ''))
+                    
+                    # Добавляем ссылку на источник
+                    final_post = f"{post_text}\n\n🔗 <a href='{entry.link}'>Source</a>"
+                    
+                    await message.answer(final_post, parse_mode="HTML", disable_web_page_preview=False)
+                    
+                    # Сохраняем в базу
+                    if not db.is_news_posted(entry.link):
+                        db.save_news(
+                            analysis.get('ru', ''),
+                            analysis.get('en', ''),
+                            analysis.get('es', ''),
+                            analysis.get('de', ''),
+                            entry.link,
+                            analysis.get('score', 7)
+                        )
+                    
+                    count += 1
+                    await asyncio.sleep(2)
         except Exception as e:
-            logging.error(f"Error fetching news for user: {e}")
+            logging.error(f"Error in onboarding: {e}")
+    
+    if count == 0:
+        await message.answer("📭 Обновление базы... Первые разборы придут в течение 5-10 минут.")
 
-@dp.message(F.text == "🤖 VERO AI News Feed")
+@dp.message(F.text == "🤖 VERO AI")
 async def show_feed(message: types.Message):
-    await message.answer("🤖 <b>VERO AI News Feed</b>\n\nВы подписаны на основной поток аналитики. Новые отчеты приходят сюда автоматически.")
+    await message.answer("🤖 <b>VERO AI Feed</b>\n\nВы подписаны на экспертную аналитику. Новые разборы приходят автоматически.", parse_mode="HTML")
 
 @dp.message(F.text == "📊 Live Report")
 async def show_report(message: types.Message):
