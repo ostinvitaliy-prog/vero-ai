@@ -3,15 +3,17 @@ import json
 import logging
 from config import ROUTEL_API_KEY, BASE_URL
 
-async def analyze_and_style_news(title, description, lang):
+async def analyze_and_style_news(title, description, lang, source):
     # Промпт с жесткой структурой и примером
     prompt = f"""You are VERO AI. Analyze this crypto news for a {lang} audience.
 News: {title} - {description}
+Source: {source}
 
 STRICT FORMAT RULES:
 1. TRANSLATE the title and all content to {lang}.
 2. Use simple language for non-crypto people.
 3. Add empty lines between blocks for readability.
+4. Include source at the end.
 
 STRUCTURE:
 💎 <b>[TITLE IN CAPS AND {lang}]</b>
@@ -35,6 +37,8 @@ STRUCTURE:
 
 ⚠️ <b>[Negative Scenario Name]</b> — вероятность [Y]%
 [Description of what happens]
+
+📰 <b>Источник:</b> {source}
 
 Return ONLY the formatted text in {lang}. No extra labels."""
 
