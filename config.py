@@ -1,15 +1,11 @@
 import os
 
-# Telegram Bot
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+# Твои боевые ключи
+BOT_TOKEN = "8050168002:AAEnS0NsuVn4-_WZbOLTpluPDP8BCqF3CUQ"
+ROUTEL_API_KEY = "abacus_v1_5e0e8a8e8e8e4e4e8e8e8e8e8e8e8e8e"
 
-# RouteLLM API
-ROUTEL_API_KEY = os.getenv("ROUTEL_API_KEY")
+# Настройки системы
 BASE_URL = "https://routellm.abacus.ai/v1"
-
-# News Settings
 NEWS_CHECK_INTERVAL = 600  # 10 минут
-MIN_NEWS_SCORE = 7  # Постим только важное
-
-# Database
-DB_NAME = "vero.db"  # Вернул старое имя переменной, чтобы database.py его увидел
+MIN_NEWS_SCORE = 7
+DB_NAME = "vero.db"
