@@ -3,47 +3,39 @@ import logging
 from config import ROUTEL_API_KEY, BASE_URL
 
 async def analyze_and_style_news(title, description, lang, source):
-    # Упрощенный, но строгий промпт для исключения ошибок API
     prompt = f"""Analyze this crypto news for {lang} audience.
 Title: {title}
 Description: {description}
 Source: {source}
 
-Format your response exactly like this:
+Format your response exactly like this in {lang}:
 
 💎 <b>[TITLE IN CAPS]</b>
 
-[2-3 sentences explaining what happened and defining any complex terms like PMI or Reflation in simple words.]
+[2-3 sentences explaining what happened and defining any complex terms like PMI, Long/Short, or Reflation in simple words.]
 
 🧠 <b>VERO AI SUMMARY</b>
 
 <b>Что это значит:</b>
-[Simple impact explanation]
+[Simple impact explanation in {lang}]
 
 <b>Для кого важно:</b>
-• <b>Инвесторы:</b> [Action/Risk]
-• <b>Трейдеры:</b> [Action/Risk]
-• <b>Новички:</b> [Action/Risk]
+• <b>Инвесторы:</b> [Action/Risk in {lang}]
+• <b>Трейдеры:</b> [Action/Risk in {lang}]
+• <b>Новички:</b> [Action/Risk in {lang}]
 
 <b>Сценарии:</b>
 
 ✅ <b>Сценарий роста</b> — вероятность 60%
-[Description]
+[Description in {lang}]
 
 ⚠️ <b>Сценарий падения</b> — вероятность 40%
-[Description]
+[Description in {lang}]
 
 📰 <b>Источник:</b> {source}"""
 
-    headers = {
-        "Authorization": f"Bearer {ROUTEL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "gpt-4o",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.3
-    }
+    headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}", "Content-Type": "application/json"}
+    payload = {"model": "gpt-4o", "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
 
     try:
         async with httpx.AsyncClient(timeout=40.0) as client:
@@ -51,7 +43,7 @@ Format your response exactly like this:
             if resp.status_code == 200:
                 return resp.json()["choices"][0]["message"]["content"]
             else:
-                logging.error(f"AI API Error: {resp.status_code} - {resp.text}")
+                logging.error(f"AI API Error: {resp.status_code}")
     except Exception as e:
         logging.error(f"AI Connection Error: {e}")
     return None
