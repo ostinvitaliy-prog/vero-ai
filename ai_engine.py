@@ -18,7 +18,13 @@ Summary (2 lines)
 
 Return JSON with keys: ru, en, es, de."""
 
-    headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}", "Content-Type": "application/json"}
+    # Пробуем разные варианты заголовков, чтобы пробить 403
+    headers = {
+        "Authorization": f"Bearer {ROUTEL_API_KEY}",
+        "Content-Type": "application/json",
+        "X-API-KEY": ROUTEL_API_KEY # Некоторые системы Abacus требуют этот заголовок
+    }
+    
     payload = {
         "model": "abacus-gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
@@ -29,10 +35,14 @@ Return JSON with keys: ru, en, es, de."""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload)
+        
         if resp.status_code == 200:
             return json.loads(resp.json()["choices"][0]["message"]["content"])
-        return None
-    except Exception:
+        else:
+            logging.error(f"AI Error {resp.status_code}: {resp.text}")
+            return None
+    except Exception as e:
+        logging.error(f"AI Exception: {e}")
         return None
 
 async def extract_image_from_source(url: str):
