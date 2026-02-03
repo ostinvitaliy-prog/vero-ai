@@ -48,28 +48,41 @@ async def set_language(message: types.Message):
     lang = lang_map.get(message.text, "en")
     db.save_user(message.from_user.id, lang)
     
-    await message.answer(f"🦾 <b>VERO AI активирован.</b>\n\nГотовлю для вас последние 3 обзора рынка...", parse_mode="HTML", reply_markup=get_main_menu())
+    await message.answer(
+        f"🦾 <b>VERO AI активирован.</b>\n\nДобро пожаловать в будущее медиа-активов. Сейчас я подберу для вас 3 актуальных обзора рынка...", 
+        parse_mode="HTML", 
+        reply_markup=get_main_menu()
+    )
 
+    # Срочный подбор 3 новостей
     count = 0
     for feed_url in RSS_FEEDS:
         if count >= 3: break
-        feed = feedparser.parse(feed_url)
-        for entry in feed.entries[:3]:
-            if count >= 3: break
-            
-            analysis = await analyze_and_style_news(entry.title, entry.summary[:300], entry.link)
-            if analysis:
-                text = analysis.get(lang, "Error translating")
-                await message.answer(f"{text}\n\n🔗 <a href='{entry.link}'>Источник</a>", 
-                                     parse_mode="HTML", disable_web_page_preview=True)
-                if not db.is_news_posted(entry.link):
-                    db.save_news(analysis.get('ru'), analysis.get('en'), analysis.get('es'), analysis.get('de'), entry.link, analysis.get('score', 7))
+        try:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries[:3]:
+                if count >= 3: break
+                
+                # Пытаемся получить анализ от AI
+                analysis = await analyze_and_style_news(entry.title, entry.summary[:300], entry.link)
+                
+                if analysis and lang in analysis:
+                    text = analysis.get(lang)
+                    await message.answer(f"{text}\n\n🔗 <a href='{entry.link}'>Источник</a>", 
+                                         parse_mode="HTML", disable_web_page_preview=True)
+                else:
+                    # Если AI подвел, даем хотя бы заголовок, чтобы не было тишины
+                    await message.answer(f"📢 <b>{entry.title}</b>\n\n{entry.summary[:200]}...\n\n🔗 <a href='{entry.link}'>Читать оригинал</a>", 
+                                         parse_mode="HTML")
+                
                 count += 1
                 await asyncio.sleep(1)
+        except Exception as e:
+            logging.error(f"Error fetching news for user: {e}")
 
-@dp.message(F.text == "🤖 VERO AI")
+@dp.message(F.text == "🤖 VERO AI News Feed")
 async def show_feed(message: types.Message):
-    await message.answer("🤖 <b>VERO AI Feed</b>\n\nВы подписаны на основной поток аналитики. Новые отчеты приходят сюда автоматически по мере появления важных событий на рынке.", parse_mode="HTML")
+    await message.answer("🤖 <b>VERO AI News Feed</b>\n\nВы подписаны на основной поток аналитики. Новые отчеты приходят сюда автоматически.")
 
 @dp.message(F.text == "📊 Live Report")
 async def show_report(message: types.Message):
