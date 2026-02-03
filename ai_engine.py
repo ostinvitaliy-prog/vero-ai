@@ -1,56 +1,54 @@
 import httpx
-import json
 import logging
 from config import ROUTEL_API_KEY, BASE_URL
 
 async def analyze_and_style_news(title, description, lang, source):
-    prompt = f"""You are VERO AI, a world-class crypto analyst. Analyze this news for a {lang} audience.
+    prompt = f"""You are VERO AI. Analyze this crypto news for a {lang} audience.
 News: {title} - {description}
 Source: {source}
 
-STRICT RULES:
-1. TRANSLATE everything to {lang}.
-2. EXPLAIN all complex terms (like PMI, Long/Short, Reflation, etc.) in simple words for beginners.
-3. Use bold HTML tags <b></b> for headers.
-4. Add empty lines between blocks.
+STRICT FORMAT RULES:
+1. TRANSLATE EVERYTHING TO {lang}.
+2. EXPLAIN ALL COMPLEX TERMS (like PMI, Reflation, etc.) simply.
+3. USE BOLD HTML <b></b> FOR HEADERS.
+4. DOUBLE NEW LINES BETWEEN BLOCKS.
 
 STRUCTURE:
 💎 <b>[TITLE IN CAPS]</b>
 
-[2-3 sentences: What happened. Explain any complex terms mentioned here.]
+[2-3 sentences: What happened + Explanation of terms. Use {lang}.]
 
 🧠 <b>VERO AI SUMMARY</b>
 
 <b>Что это значит:</b>
-[Simple explanation of the impact. Why should a regular person care?]
+[Simple explanation of impact]
 
 <b>Для кого важно:</b>
-• <b>Инвесторы:</b> [Specific impact/action]
-• <b>Трейдеры:</b> [Specific impact/action]
-• <b>Новички:</b> [Specific impact/action]
+• <b>Инвесторы:</b> [Specific risk/action]
+• <b>Трейдеры:</b> [Specific risk/action]
+• <b>Новички:</b> [Specific risk/action]
 
 <b>Сценарии:</b>
 
-✅ <b>[Positive Scenario]</b> — вероятность [X]%
-[Detailed description]
+✅ <b>Сценарий роста</b> — вероятность [X]%
+[Description]
 
-⚠️ <b>[Negative Scenario]</b> — вероятность [Y]%
-[Detailed description]
+⚠️ <b>Сценарий падения</b> — вероятность [Y]%
+[Description]
 
 📰 <b>Источник:</b> {source}"""
 
     headers = {"Authorization": f"Bearer {ROUTEL_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "gpt-4o", "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
+    payload = {"model": "gpt-4o", "messages": [{"role": "user", "content": prompt}], "temperature": 0.2}
 
     try:
         async with httpx.AsyncClient(timeout=40.0) as client:
             resp = await client.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload)
             if resp.status_code == 200:
                 return resp.json()["choices"][0]["message"]["content"]
-            return None
     except Exception as e:
         logging.error(f"AI Error: {e}")
-        return None
+    return None
 
 async def extract_image_from_source(url: str):
     try:
@@ -60,5 +58,5 @@ async def extract_image_from_source(url: str):
                 start = r.text.find('property="og:image" content="') + 29
                 end = r.text.find('"', start)
                 return r.text[start:end]
-        return None
-    except: return None
+    except: pass
+    return "https://cointribune.com/app/uploads/2023/03/crypto-news.jpg" # Запасное фото
