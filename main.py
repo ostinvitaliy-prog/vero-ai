@@ -49,15 +49,21 @@ async def set_lang(message: types.Message):
             if sent >= 3: break
             analysis = await analyze_and_style_news(entry.title, entry.summary[:400], lang, source_name)
             img = await extract_image_from_source(entry.link)
-            if analysis:
+            
+            # Если AI ответил - шлем анализ, если нет - хотя бы заголовок и ссылку
+            text = analysis if analysis else f"💎 <b>{entry.title.upper()}</b>\n\n{entry.link}\n\n📰 Источник: {source_name}"
+            
+            try:
                 if img: await message.answer_photo(img)
-                await message.answer(analysis, parse_mode="HTML")
+                await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
                 sent += 1
                 await asyncio.sleep(1)
+            except Exception as e:
+                logging.error(f"Error sending news: {e}")
 
 @dp.message(F.text == "🧠 VERO News Analysis")
 async def btn_analysis(message: types.Message):
-    await message.answer("🧠 <b>Анализ новостей</b>\n\nНовые разборы приходят автоматически каждые 10-15 минут.", parse_mode="HTML")
+    await message.answer("🧠 <b>Анализ новостей</b>\n\nНовые разборы приходят автоматически каждые 10 минут.", parse_mode="HTML")
 
 @dp.message(F.text == "📊 Live Report")
 async def btn_report(message: types.Message):
