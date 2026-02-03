@@ -4,10 +4,10 @@ import logging
 from ai_engine import analyze_and_style_news, extract_image_from_source
 import database as db
 
-RSS_FEEDS = [
-    "https://cointelegraph.com/rss",
-    "https://decrypt.co/feed"
-]
+RSS_FEEDS = {
+    "Cointelegraph": "https://cointelegraph.com/rss",
+    "Decrypt": "https://decrypt.co/feed"
+}
 
 last_posted_link = None
 
@@ -17,7 +17,7 @@ async def start_autoposter(bot):
     
     while True:
         try:
-            for feed_url in RSS_FEEDS:
+            for source_name, feed_url in RSS_FEEDS.items():
                 feed = feedparser.parse(feed_url)
                 for entry in feed.entries[:1]:
                     if entry.link == last_posted_link:
@@ -27,9 +27,9 @@ async def start_autoposter(bot):
                     users = db.get_all_users()
                     
                     for user_id, lang in users:
-                        analysis = await analyze_and_style_news(entry.title, entry.summary[:400], lang)
+                        analysis = await analyze_and_style_news(entry.title, entry.summary[:400], lang, source_name)
                         img = await extract_image_from_source(entry.link)
-                        text = analysis if analysis else f"📢 <b>{entry.title}</b>\n\n{entry.link}"
+                        text = analysis if analysis else f"📢 <b>{entry.title}</b>\n\n{entry.link}\n\n📰 <b>Источник:</b> {source_name}"
                         
                         try:
                             if img:
