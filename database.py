@@ -4,16 +4,19 @@ from config import DB_NAME
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute('CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, lang TEXT DEFAULT "ru")')
-    cursor.execute('CREATE TABLE IF NOT EXISTS news_history (id INTEGER PRIMARY KEY AUTOINCREMENT, content_ru TEXT, content_en TEXT, content_es TEXT, content_de TEXT, link TEXT, score INTEGER)')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users 
+                      (user_id INTEGER PRIMARY KEY, lang TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS news 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                       text_ru TEXT, text_en TEXT, text_es TEXT, text_de TEXT, 
+                       link TEXT, score INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     conn.commit()
     conn.close()
 
-def add_user(user_id, lang="ru"):
+def save_user(user_id, lang):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute('INSERT OR IGNORE INTO users (user_id, lang) VALUES (?, ?)', (user_id, lang))
-    cursor.execute('UPDATE users SET lang = ? WHERE user_id = ?', (lang, user_id))
+    cursor.execute('INSERT OR REPLACE INTO users (user_id, lang) VALUES (?, ?)', (user_id, lang))
     conn.commit()
     conn.close()
 
@@ -21,27 +24,24 @@ def get_users_by_lang(lang):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute('SELECT user_id FROM users WHERE lang = ?', (lang,))
-    return [row[0] for row in cursor.fetchall()]
+    users = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return users
 
-def save_news(content_ru, content_en, content_es, content_de, link, score):
+def save_news(ru, en, es, de, link, score):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO news_history (content_ru, content_en, content_es, content_de, link, score) VALUES (?, ?, ?, ?, ?, ?)', 
-                   (content_ru, content_en, content_es, content_de, link, score))
-    cursor.execute('DELETE FROM news_history WHERE id NOT IN (SELECT id FROM news_history ORDER BY id DESC LIMIT 10)')
+    cursor.execute('INSERT INTO news (text_ru, text_en, text_es, text_de, link, score) VALUES (?, ?, ?, ?, ?, ?)', 
+                   (ru, en, es, de, link, score))
     conn.commit()
     conn.close()
 
-def get_recent_news(lang="ru", limit=3):
+def get_latest_news(lang, limit=3):
+    """Получает последние N новостей на нужном языке"""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    col = f"content_{lang}"
-    cursor.execute(f'SELECT {col}, link FROM news_history ORDER BY id DESC LIMIT ?', (limit,))
-    return cursor.fetchall()
-
-def get_user_lang(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute('SELECT lang FROM users WHERE user_id = ?', (user_id,))
-    result = cursor.fetchone()
-    return result[0] if result else "ru"
+    column = f"text_{lang}"
+    cursor.execute(f'SELECT {column}, link FROM news ORDER BY id DESC LIMIT ?', (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
