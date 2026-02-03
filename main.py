@@ -39,7 +39,7 @@ def get_settings_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🌍 Change Language")],
-            [KeyboardButton(text="🙈 Hide Keyboard"), KeyboardButton(text="📌 Show Menu")],
+            [KeyboardButton(text="🙈 Hide Keyboard")],
             [KeyboardButton(text="⬅️ Back")]
         ],
         resize_keyboard=True
@@ -62,37 +62,42 @@ async def set_language(message: types.Message):
 
     await message.answer(WELCOME_MESSAGES.get(lang, WELCOME_MESSAGES["en"]), parse_mode="HTML", reply_markup=get_main_menu())
     
-    header = "🗞 <b>Вот последние 3 новости:</b>" if lang == "ru" else "🗞 <b>Here are the latest 3 news:</b>"
+    header = "🗞 <b>Вот последние 3 новости в формате VERO AI:</b>" if lang == "ru" else "🗞 <b>Latest 3 news in VERO AI format:</b>"
     await message.answer(header, parse_mode="HTML")
 
     sent = 0
+    # Берем новости и ЖДЕМ анализа
     for feed_url in RSS_FEEDS:
         if sent >= 3: break
         feed = feedparser.parse(feed_url)
         for entry in feed.entries[:10]:
             if sent >= 3: break
-            if db.is_news_posted(entry.link): continue
-
-            analysis = await analyze_and_style_news(entry.title, entry.summary[:300], entry.link)
-            if analysis and analysis.get(lang):
-                await message.answer(f"{analysis[lang]}\n\n🔗 <a href='{entry.link}'>Source</a>", parse_mode="HTML")
-            else:
-                await message.answer(f"📰 <b>{entry.title}</b>\n\n🔗 <a href='{entry.link}'>Source</a>", parse_mode="HTML")
             
-            sent += 1
+            # Пытаемся получить именно AI формат
+            analysis = await analyze_and_style_news(entry.title, entry.summary[:400], entry.link)
+            
+            if analysis and analysis.get(lang):
+                await message.answer(f"{analysis[lang]}\n\n🔗 <a href='{entry.link}'>Source</a>", parse_mode="HTML", disable_web_page_preview=False)
+                sent += 1
+                # Сохраняем в базу чтобы не дублировать в автопостинге
+                db.save_news(analysis.get('ru'), analysis.get('en'), analysis.get('es'), analysis.get('de'), entry.link, 7)
+            else:
+                # Если AI совсем не ответил, пробуем следующую новость, чтобы не слать пустой RSS
+                continue
+            
             await asyncio.sleep(1)
 
 @dp.message(F.text == "⚙️ Settings")
 async def show_settings(message: types.Message):
     await message.answer("⚙️ Settings / Настройки:", reply_markup=get_settings_menu())
 
+@dp.message(F.text == "🌍 Change Language")
+async def change_lang(message: types.Message):
+    await message.answer("Choose language / Выберите язык:", reply_markup=get_lang_keyboard())
+
 @dp.message(F.text == "🙈 Hide Keyboard")
 async def hide_kb(message: types.Message):
-    await message.answer("🙈 Keyboard hidden. Use /start or <b>📌 Show Menu</b> to return.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
-
-@dp.message(F.text == "📌 Show Menu")
-async def show_kb(message: types.Message):
-    await message.answer("📌 Menu restored.", reply_markup=get_main_menu())
+    await message.answer("🙈 Кнопки скрыты. Чтобы вернуть меню, отправьте /start", reply_markup=ReplyKeyboardRemove())
 
 @dp.message(F.text == "⬅️ Back")
 async def back(message: types.Message):
