@@ -27,7 +27,7 @@ def get_lang_keyboard():
 def get_main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📢 Free Feed"), KeyboardButton(text="📊 Live Report")],
+            [KeyboardButton(text="🤖 VERO AI"), KeyboardButton(text="📊 Live Report")],
             [KeyboardButton(text="💎 VERO Exclusive"), KeyboardButton(text="👤 My Profile")]
         ],
         resize_keyboard=True,
@@ -50,7 +50,6 @@ async def set_language(message: types.Message):
     
     await message.answer(f"🦾 <b>VERO AI активирован.</b>\n\nГотовлю для вас последние 3 обзора рынка...", parse_mode="HTML", reply_markup=get_main_menu())
 
-    # Срочный подбор 3 новостей для нового юзера
     count = 0
     for feed_url in RSS_FEEDS:
         if count >= 3: break
@@ -58,21 +57,19 @@ async def set_language(message: types.Message):
         for entry in feed.entries[:3]:
             if count >= 3: break
             
-            # Проверяем, есть ли в базе, если нет - анализируем
             analysis = await analyze_and_style_news(entry.title, entry.summary[:300], entry.link)
             if analysis:
                 text = analysis.get(lang, "Error translating")
                 await message.answer(f"{text}\n\n🔗 <a href='{entry.link}'>Источник</a>", 
                                      parse_mode="HTML", disable_web_page_preview=True)
-                # Сохраняем в базу, чтобы не анализировать повторно
                 if not db.is_news_posted(entry.link):
                     db.save_news(analysis.get('ru'), analysis.get('en'), analysis.get('es'), analysis.get('de'), entry.link, analysis.get('score', 7))
                 count += 1
                 await asyncio.sleep(1)
 
-@dp.message(F.text == "📢 Free Feed")
+@dp.message(F.text == "🤖 VERO AI")
 async def show_feed(message: types.Message):
-    await message.answer("📢 Вы подписаны на Free Feed. Новые разборы приходят сюда автоматически каждые 10-15 минут.")
+    await message.answer("🤖 <b>VERO AI Feed</b>\n\nВы подписаны на основной поток аналитики. Новые отчеты приходят сюда автоматически по мере появления важных событий на рынке.", parse_mode="HTML")
 
 @dp.message(F.text == "📊 Live Report")
 async def show_report(message: types.Message):
