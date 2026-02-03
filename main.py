@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import feedparser
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import database as db
 from config import BOT_TOKEN
-from autoposter import start_autoposter
+from autoposter import start_autoposter, RSS_FEEDS
+from ai_engine import analyze_and_style_news
 from aiohttp import web
 
 logging.basicConfig(level=logging.INFO)
@@ -13,8 +15,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 def get_lang_keyboard():
-    """Клавиатура выбора языка (одноразовая)"""
-    keyboard = ReplyKeyboardMarkup(
+    return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇺🇸 English")],
             [KeyboardButton(text="🇪🇸 Español"), KeyboardButton(text="🇩🇪 Deutsch")]
@@ -22,11 +23,9 @@ def get_lang_keyboard():
         resize_keyboard=True,
         one_time_keyboard=True
     )
-    return keyboard
 
 def get_main_menu():
-    """Главное меню - постоянные кнопки внизу"""
-    keyboard = ReplyKeyboardMarkup(
+    return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📢 Free Feed"), KeyboardButton(text="📊 Live Report")],
             [KeyboardButton(text="💎 VERO Exclusive"), KeyboardButton(text="👤 My Profile")]
@@ -34,7 +33,6 @@ def get_main_menu():
         resize_keyboard=True,
         is_persistent=True
     )
-    return keyboard
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -46,49 +44,43 @@ async def cmd_start(message: types.Message):
 
 @dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch"]))
 async def set_language(message: types.Message):
-    lang_map = {
-        "🇷🇺 Русский": "ru",
-        "🇺🇸 English": "en",
-        "🇪🇸 Español": "es",
-        "🇩🇪 Deutsch": "de"
-    }
+    lang_map = {"🇷🇺 Русский": "ru", "🇺🇸 English": "en", "🇪🇸 Español": "es", "🇩🇪 Deutsch": "de"}
     lang = lang_map.get(message.text, "en")
     db.save_user(message.from_user.id, lang)
     
-    welcome_texts = {
-        "ru": "🦾 <b>VERO AI активирован.</b>\n\nМы агрегируем главные новости и даем экспертный разбор.\n\n<b>Последние новости:</b>",
-        "en": "🦾 <b>VERO AI activated.</b>\n\nWe aggregate global news and provide expert analysis.\n\n<b>Latest insights:</b>",
-        "es": "🦾 <b>VERO AI activado.</b>\n\nAgregamos noticias globales y brindamos análisis experto.\n\n<b>Últimas noticias:</b>",
-        "de": "🦾 <b>VERO AI aktiviert.</b>\n\nWir aggregieren globale Nachrichten и bieten Expertenanalysen.\n\n<b>Aktuelle Einblicke:</b>"
-    }
-    
-    await message.answer(welcome_texts.get(lang, welcome_texts['en']), parse_mode="HTML")
-    
-    latest = db.get_latest_news(lang, limit=3)
-    if latest:
-        for text, link in reversed(latest):
-            await message.answer(f"{text}\n\n🔗 <a href='{link}'>Источник</a>", 
-                                parse_mode="HTML", disable_web_page_preview=True)
-            await asyncio.sleep(0.5)
-    else:
-        await message.answer("📭 База новостей обновляется. Ожидайте первый отчет в течение 10-20 минут.")
+    await message.answer(f"🦾 <b>VERO AI активирован.</b>\n\nГотовлю для вас последние 3 обзора рынка...", parse_mode="HTML", reply_markup=get_main_menu())
 
-    await message.answer("<b>Main Menu:</b>", reply_markup=get_main_menu(), parse_mode="HTML")
+    # Срочный подбор 3 новостей для нового юзера
+    count = 0
+    for feed_url in RSS_FEEDS:
+        if count >= 3: break
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries[:3]:
+            if count >= 3: break
+            
+            # Проверяем, есть ли в базе, если нет - анализируем
+            analysis = await analyze_and_style_news(entry.title, entry.summary[:300], entry.link)
+            if analysis:
+                text = analysis.get(lang, "Error translating")
+                await message.answer(f"{text}\n\n🔗 <a href='{entry.link}'>Источник</a>", 
+                                     parse_mode="HTML", disable_web_page_preview=True)
+                # Сохраняем в базу, чтобы не анализировать повторно
+                if not db.is_news_posted(entry.link):
+                    db.save_news(analysis.get('ru'), analysis.get('en'), analysis.get('es'), analysis.get('de'), entry.link, analysis.get('score', 7))
+                count += 1
+                await asyncio.sleep(1)
 
-# Обработчики кнопок меню
 @dp.message(F.text == "📢 Free Feed")
 async def show_feed(message: types.Message):
-    await message.answer("📢 Вы подписаны на Free Feed. Новые разборы приходят сюда автоматически.")
+    await message.answer("📢 Вы подписаны на Free Feed. Новые разборы приходят сюда автоматически каждые 10-15 минут.")
 
 @dp.message(F.text == "📊 Live Report")
 async def show_report(message: types.Message):
-    report_text = "📈 <b>VERO Live Transparency</b>\n\nAd Revenue: $0.00\nBuyback Fund: $0.00\nTotal Burned: 0 VERO"
-    await message.answer(report_text, parse_mode="HTML")
+    await message.answer("📈 <b>VERO Live Transparency</b>\n\nAd Revenue: $0.00\nBuyback Fund: $0.00\nTotal Burned: 0 VERO", parse_mode="HTML")
 
 @dp.message(F.text == "👤 My Profile")
 async def show_profile(message: types.Message):
-    profile_text = f"👤 <b>Profile</b>\nID: {message.from_user.id}\nBalance: 0 VERO"
-    await message.answer(profile_text, parse_mode="HTML")
+    await message.answer(f"👤 <b>Profile</b>\nID: {message.from_user.id}\nBalance: 0 VERO", parse_mode="HTML")
 
 @dp.message(F.text == "💎 VERO Exclusive")
 async def show_exclusive(message: types.Message):
@@ -105,7 +97,6 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", 10000)
     asyncio.create_task(site.start())
-    
     asyncio.create_task(start_autoposter(bot))
     await dp.start_polling(bot)
 
