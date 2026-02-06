@@ -1,0 +1,331 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Language } from '../common/translations';
+
+export interface NewsItem {
+  title: string;
+  description: string;
+  link: string;
+  image?: string;
+  pubDate: Date;
+}
+
+@Injectable()
+export class AiService {
+  private readonly logger = new Logger(AiService.name);
+  private readonly apiKey: string;
+  private readonly baseUrl = 'https://apps.abacus.ai/v1/chat/completions';
+
+  constructor(private configService: ConfigService) {
+    const apiKey = this.configService.get<string>('ABACUSAI_API_KEY');
+    if (!apiKey) {
+      throw new Error('ABACUSAI_API_KEY is not configured');
+    }
+    this.apiKey = apiKey;
+  }
+
+  private getPriorityPrompt(newsItem: NewsItem): string {
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    return `Analyze this crypto news and assign PRIORITY LEVEL. Current date: ${currentDate}.
+
+News: ${newsItem.title}
+${newsItem.description}
+
+PRIORITY LEVELS:
+
+🔴 RED (Critical) - IF news includes:
+- Government regulation/ban/approval (SEC, Fed, ECB decisions)
+- Major hack/exploit (>$10M stolen)
+- BTC/ETH price movement >5% in 24h
+- Top exchange listing (Binance, Coinbase, Kraken)
+- Whale activity (>$50M transaction)
+- Market crash or major rally
+- Critical infrastructure failure
+
+🟡 YELLOW (Important) - IF news includes:
+- Altcoin price movement >10%
+- Major partnership/acquisition
+- Tech upgrade/hardfork announcement
+- Institutional investment announcement
+- DeFi/NFT significant event (>$5M)
+- Medium hack ($1-10M)
+- New product launch from major company
+
+🟢 GREEN (Informational) - ALL OTHER:
+- Market analysis/predictions
+- Educational content
+- Expert opinions
+- General market trends
+- Small project updates
+
+RESPOND IN JSON ONLY:
+{
+  "priority": "red" | "yellow" | "green",
+  "reason": "Brief 1-sentence reason why this level"
+}`;
+  }
+
+  private getAnalysisPrompt(newsItem: NewsItem, lang: Language, priority: string): string {
+    const langMap = {
+      ru: 'Russian',
+      en: 'English',
+      es: 'Spanish',
+      de: 'German'
+    };
+
+    const priorityEmoji = {
+      red: '🔴',
+      yellow: '🟡',
+      green: '🟢'
+    };
+
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    return `You are VERO AI, an elite crypto analyst. Provide SHORT, SCANNABLE analysis in ${langMap[lang]}.
+
+CURRENT DATE: ${currentDate}
+MARKET: Bitcoin ~$80k, Ethereum ~$3k (2026 bull cycle)
+PRIORITY: ${priority.toUpperCase()}
+
+News: ${newsItem.title}
+${newsItem.description}
+
+CRITICAL: Keep it SHORT and VISUAL. Each section must be COMPACT (max 2-3 short sentences).
+
+OUTPUT FORMAT in ${langMap[lang]}:
+
+${priorityEmoji[priority]} <b>[CATCHY HEADLINE - 5-7 WORDS MAX]</b>
+
+[ONE sentence: what happened with KEY NUMBER]
+[ONE sentence: why it matters]
+
+🧠 <b>Для рынка:</b>
+[2 SHORT sentences max - market impact with specific consequence]
+
+💼 <b>Инвесторы:</b> [1 sentence - specific action/risk]
+
+📈 <b>Трейдеры:</b> [1 sentence - realistic price levels ~$80k BTC]
+
+🎓 <b>Новички:</b> [1 sentence - simple advice]
+
+1️⃣ <b>Сценарий 1 (X%):</b> [1-2 sentences - specific trigger + outcome]
+
+2️⃣ <b>Сценарий 2 (Y%):</b> [1-2 sentences - alternative condition + outcome]
+
+RULES:
+- SUPER SHORT sentences (10-15 words max)
+- NO long paragraphs - break into bullets
+- Use emoji 💎🔥📊📈📉💰⚡️ for visual appeal
+- Translate EVERYTHING to ${langMap[lang]} except crypto names
+- Use CURRENT prices (~$80k BTC, not $40k)
+- MUST fit in ONE Telegram message (under 600 characters)
+- Be SPECIFIC: actual numbers, dates, price levels
+
+Output ONLY the formatted text, nothing else.`;
+  }
+
+  private getValidationPrompt(analysis: string, lang: Language): string {
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    return `Quality check for VERO crypto analysis (${currentDate}). Market: BTC ~$80k, ETH ~$3k.
+
+Analysis:
+${analysis}
+
+CHECK:
+1. ❌ TOO LONG (over 800 characters)?
+2. ❌ UNREALISTIC PRICES (BTC $30-40k instead of ~$80k)?
+3. ❌ MISSING EMOJI or structure?
+4. ❌ NOT in ${lang}?
+5. ❌ VAGUE scenarios (no specific numbers)?
+
+JSON RESPONSE:
+{
+  "has_critical_errors": true/false,
+  "errors_found": ["brief problems"],
+  "verdict": "PASS" or "FAIL",
+  "reason": "1 sentence"
+}
+
+Be strict - premium product.`;
+  }
+
+  private async validateAnalysis(analysis: string, lang: Language): Promise<{ valid: boolean; errors: string[] }> {
+    try {
+      const validationPrompt = this.getValidationPrompt(analysis, lang);
+
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a strict quality control AI. Reject any analysis with unrealistic prices or low-quality content.'
+            },
+            {
+              role: 'user',
+              content: validationPrompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 500,
+          stream: false
+        })
+      });
+
+      if (!response.ok) {
+        this.logger.warn('Validation API call failed, skipping validation');
+        return { valid: true, errors: [] }; // If validation fails, proceed with original analysis
+      }
+
+      const data = await response.json();
+      const validationResult = data.choices[0]?.message?.content;
+
+      // Parse JSON response
+      const jsonMatch = validationResult.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+        const isValid = result.verdict === 'PASS' && !result.has_critical_errors;
+        
+        if (!isValid) {
+          this.logger.warn(`❌ Analysis validation FAILED: ${result.reason}`);
+          this.logger.warn(`Errors found: ${result.errors_found.join(', ')}`);
+        } else {
+          this.logger.log('✅ Analysis validation PASSED');
+        }
+
+        return { 
+          valid: isValid, 
+          errors: result.errors_found || [] 
+        };
+      }
+
+      return { valid: true, errors: [] };
+    } catch (error) {
+      this.logger.error('Error validating analysis:', error);
+      return { valid: true, errors: [] }; // On error, proceed with original
+    }
+  }
+
+  async analyzeNews(newsItem: NewsItem, lang: Language): Promise<string> {
+    const MAX_ATTEMPTS = 2; // Try generating analysis up to 2 times
+    
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        this.logger.log(`📝 Generating analysis (attempt ${attempt}/${MAX_ATTEMPTS})...`);
+        
+        const prompt = this.getAnalysisPrompt(newsItem, lang);
+
+        const response = await fetch(this.baseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are VERO AI, an elite crypto market analyst. Provide concise, actionable insights with CURRENT market prices (Bitcoin ~$80k, Ethereum ~$3k).'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: 1500,
+            stream: false
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          this.logger.error(`AI API error: ${response.status} - ${errorText}`);
+          throw new Error(`AI API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const analysis = data.choices[0]?.message?.content;
+
+        if (!analysis) {
+          throw new Error('Empty response from AI API');
+        }
+
+        // Validate the analysis
+        const validation = await this.validateAnalysis(analysis.trim(), lang);
+
+        if (validation.valid) {
+          this.logger.log(`✅ High-quality analysis generated on attempt ${attempt}`);
+          return analysis.trim();
+        } else {
+          this.logger.warn(`⚠️ Analysis failed validation on attempt ${attempt}: ${validation.errors.join(', ')}`);
+          
+          if (attempt === MAX_ATTEMPTS) {
+            this.logger.warn('Max attempts reached, using last generated analysis despite validation failure');
+            return analysis.trim();
+          }
+          
+          // Continue to next attempt
+          continue;
+        }
+      } catch (error) {
+        this.logger.error(`Error analyzing news (attempt ${attempt}):`, error);
+        
+        if (attempt === MAX_ATTEMPTS) {
+          throw error;
+        }
+      }
+    }
+
+    throw new Error('Failed to generate valid analysis after all attempts');
+  }
+
+  async analyzeNewsMultiLang(newsItem: NewsItem): Promise<Map<Language, string>> {
+    const languages: Language[] = ['ru', 'en', 'es', 'de'];
+    const results = new Map<Language, string>();
+
+    for (const lang of languages) {
+      try {
+        const analysis = await this.analyzeNews(newsItem, lang);
+        results.set(lang, analysis);
+        this.logger.log(`News analyzed in ${lang}`);
+      } catch (error) {
+        this.logger.error(`Failed to analyze news in ${lang}:`, error);
+        results.set(lang, this.getFallbackAnalysis(newsItem, lang));
+      }
+    }
+
+    return results;
+  }
+
+  private getFallbackAnalysis(newsItem: NewsItem, lang: Language): string {
+    const fallbacks = {
+      ru: `💎 ${newsItem.title.toUpperCase()}\n\n${newsItem.description}\n\n🧠 Анализ временно недоступен. Проверьте позже.`,
+      en: `💎 ${newsItem.title.toUpperCase()}\n\n${newsItem.description}\n\n🧠 Analysis temporarily unavailable. Check back later.`,
+      es: `💎 ${newsItem.title.toUpperCase()}\n\n${newsItem.description}\n\n🧠 Análisis temporalmente no disponible. Vuelve más tarde.`,
+      de: `💎 ${newsItem.title.toUpperCase()}\n\n${newsItem.description}\n\n🧠 Analyse vorübergehend nicht verfügbar. Schau später vorbei.`
+    };
+
+    return fallbacks[lang] || fallbacks['en'];
+  }
+}

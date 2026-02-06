@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  user_id           BigInt        @id
+  lang              String        @db.VarChar(2)
+  join_date         DateTime      @default(now())
+  status            String        @default("Free") @db.VarChar(20)
+  news_feed_enabled Boolean       @default(false)
+  priority_filter   String        @default("yellow") @db.VarChar(10)
+  onboarding_done   Boolean       @default(false)
+  news_read_count   Int           @default(0)
+  
+  // Token fields
+  vero_balance      Float         @default(0)
+  signup_position   Int?
+  wallet_address    String?       @db.VarChar(255)
+  
+  user_news         user_news[]
+}
+
+model sent_news {
+  id         Int      @id @default(autoincrement())
+  news_hash  String   @unique @db.VarChar(255)
+  sent_at    DateTime @default(now())
+}
+
+model user_news {
+  id         Int      @id @default(autoincrement())
+  user_id    BigInt
+  news_hash  String   @db.VarChar(255)
+  sent_at    DateTime @default(now())
+  user       users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  
+  @@unique([user_id, news_hash])
+  @@index([user_id])
+}
+
+model news_priority {
+  id            Int      @id @default(autoincrement())
+  news_hash     String   @unique @db.VarChar(255)
+  priority      String   @db.VarChar(10)
+  priority_reason String? @db.Text
+  created_at    DateTime @default(now())
+  
+  @@index([priority])
+}
+
+model project_config {
+  id                    Int      @id @default(autoincrement())
+  total_subscribers     Int      @default(0)
+  updated_at            DateTime @updatedAt
+}
