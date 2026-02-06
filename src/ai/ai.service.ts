@@ -6,7 +6,7 @@ export interface NewsItem {
   description: string;
   link: string;
   pubDate: string;
-  image?: string;
+  imageUrl?: string;
 }
 
 export type Language = 'ru' | 'en';
@@ -65,11 +65,11 @@ export class AiService {
         return;
       }
 
-      const message = \`🚨 <b>VERO Bot Alert</b>\n\n\` +
-        \`⚠️ <b>AI Credits Issue Detected</b>\n\n\` +
-        \`Error: \${error}\n\n\` +
-        \`Time: \${new Date().toISOString()}\n\n\` +
-        \`Please check your Abacus.AI credits balance.\`;
+      const message = `🚨 <b>VERO Bot Alert</b>\n\n` +
+        `⚠️ <b>AI Credits Issue Detected</b>\n\n` +
+        `Error: ${error}\n\n` +
+        `Time: ${new Date().toISOString()}\n\n` +
+        `Please check your Abacus.AI credits balance.`;
 
       await this.telegramBot.telegram.sendMessage(this.ADMIN_ID, message, { parse_mode: 'HTML' });
       this.lastCreditWarningTime = now;
@@ -80,12 +80,12 @@ export class AiService {
   }
 
   async analyzeNewsUnified(newsItem: NewsItem): Promise<AnalysisResult> {
-    const prompt = \`You are a crypto news analyst for VERO AI. Analyze this news and create Telegram posts in BOTH English and Russian.
+    const prompt = `You are a crypto news analyst for VERO AI. Analyze this news and create Telegram posts in BOTH English and Russian.
 
 NEWS:
-Title: \${newsItem.title}
-Description: \${newsItem.description}
-Link: \${newsItem.link}
+Title: ${newsItem.title}
+Description: ${newsItem.description}
+Link: ${newsItem.link}
 
 TASK:
 1. Determine priority level:
@@ -124,14 +124,14 @@ Return ONLY valid JSON (no markdown, no extra text):
     "aiSimple": "...",
     "aiLeads": "..."
   }
-}\`;
+}`;
 
     try {
       const response = await fetch(this.baseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': \`Bearer \${this.apiKey}\`,
+          'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
@@ -152,13 +152,13 @@ Return ONLY valid JSON (no markdown, no extra text):
 
       if (!response.ok) {
         const errorText = await response.text();
-        this.logger.error(\`AI API error: \${response.status} - \${errorText}\`);
+        this.logger.error(`AI API error: ${response.status} - ${errorText}`);
 
         if (response.status === 402 || response.status === 429 || errorText.includes('credit')) {
           await this.notifyAdminAboutCredits(errorText);
         }
 
-        throw new Error(\`AI API error: \${response.status}\`);
+        throw new Error(`AI API error: ${response.status}`);
       }
 
       const data = await response.json();
@@ -170,7 +170,7 @@ Return ONLY valid JSON (no markdown, no extra text):
 
       let result: AnalysisResult;
       try {
-        const cleanContent = content.replace(/\`\`\`json\n?/g, '').replace(/\`\`\`\n?/g, '').trim();
+        const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         result = JSON.parse(cleanContent);
       } catch (parseError) {
         this.logger.error('Failed to parse AI response:', content);
@@ -181,7 +181,7 @@ Return ONLY valid JSON (no markdown, no extra text):
         throw new Error('Invalid response structure from AI');
       }
 
-      this.logger.log(\`✓ Unified analysis complete: \${result.priority} - \${newsItem.title.substring(0, 50)}\`);
+      this.logger.log(`✓ Unified analysis complete: ${result.priority} - ${newsItem.title.substring(0, 50)}`);
       return result;
 
     } catch (error) {
@@ -190,15 +190,20 @@ Return ONLY valid JSON (no markdown, no extra text):
     }
   }
 
-  formatTelegramPost(analysis: AnalysisResult, lang: Language, imageUrl?: string): string {
+  formatTelegramPost(newsItem: NewsItem, lang: Language): string {
+    const analysis = (newsItem as any).analysis as AnalysisResult;
+    if (!analysis) {
+      throw new Error('News item must have analysis data');
+    }
+
     const data = lang === 'en' ? analysis.en : analysis.ru;
     const priorityEmoji = analysis.priority === 'RED' ? '🔴' : analysis.priority === 'YELLOW' ? '🟡' : '🟢';
 
-    let post = \`\${priorityEmoji} <b>\${data.title}</b>\n\n\`;
-    post += \`\${data.body}\n\n\`;
-    post += \`💎 <b>VERO AI:</b>\n\`;
-    post += \`<b>📌 \${lang === 'ru' ? 'Простым языком' : 'In simple terms'}:</b> \${data.aiSimple}\n\`;
-    post += \`<b>📈 \${lang === 'ru' ? 'Может привести к' : 'May lead to'}:</b> \${data.aiLeads}\`;
+    let post = `${priorityEmoji} <b>${data.title}</b>\n\n`;
+    post += `${data.body}\n\n`;
+    post += `💎 <b>VERO AI:</b>\n`;
+    post += `<b>📌 ${lang === 'ru' ? 'Простым языком' : 'In simple terms'}:</b> ${data.aiSimple}\n`;
+    post += `<b>📈 ${lang === 'ru' ? 'Может привести к' : 'May lead to'}:</b> ${data.aiLeads}`;
 
     return post;
   }
@@ -213,6 +218,6 @@ Return ONLY valid JSON (no markdown, no extra text):
 
   async generateAnalysis(newsItem: NewsItem, lang: Language): Promise<string> {
     const result = await this.analyzeNewsUnified(newsItem);
-    return this.formatTelegramPost(result, lang);
+    return this.formatTelegramPost({ ...newsItem, analysis: result } as any, lang);
   }
 }
