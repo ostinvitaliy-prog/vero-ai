@@ -1,5 +1,0 @@
-aiogram
-feedparser
-httpx
-apscheduler
-aiohttp
