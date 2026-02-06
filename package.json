@@ -1,0 +1,37 @@
+{
+  "name": "vero-bot",
+  "version": "1.0.0",
+  "description": "VERO AI Crypto News Bot for Telegram",
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^4.0.0",
+    "@nestjs/swagger": "^11.2.3",
+    "@prisma/client": "6.7.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.3",
+    "reflect-metadata": "^0.2.2",
+    "rss-parser": "^3.13.0",
+    "rxjs": "^7.8.1",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@types/node": "22.0.0",
+    "prisma": "6.7.0",
+    "typescript": "5.6.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
