@@ -42,7 +42,7 @@ export class CronService {
 
     try {
       const latestNews = await this.rssService.getNewsForPosting();
-      this.logger.log(\`📰 Found \${latestNews.length} news items to analyze\`);
+      this.logger.log(`📰 Found ${latestNews.length} news items to analyze`);
 
       for (const newsItem of latestNews) {
         try {
@@ -62,7 +62,7 @@ export class CronService {
             continue;
           }
 
-          this.logger.log(\`🤖 Analyzing: \${newsItem.title.substring(0, 60)}...\`);
+          this.logger.log(`🤖 Analyzing: ${newsItem.title.substring(0, 60)}...`);
           const analysisResult = await this.aiService.analyzeNewsUnified(newsItem);
 
           this.newsBuffer.push({
@@ -73,13 +73,13 @@ export class CronService {
             scannedAt: new Date()
           });
 
-          this.logger.log(\`✓ Added to buffer: \${analysisResult.priority} - \${newsItem.title.substring(0, 50)}\`);
+          this.logger.log(`✓ Added to buffer: ${analysisResult.priority} - ${newsItem.title.substring(0, 50)}`);
         } catch (error) {
-          this.logger.error(\`Error analyzing news item:\`, error);
+          this.logger.error(`Error analyzing news item:`, error);
         }
       }
 
-      this.logger.log(\`✅ Scan complete. Buffer size: \${this.newsBuffer.length}\`);
+      this.logger.log(`✅ Scan complete. Buffer size: ${this.newsBuffer.length}`);
     } catch (error) {
       this.logger.error('Error in scanNews:', error);
     } finally {
@@ -111,7 +111,7 @@ export class CronService {
       });
 
       const topNews = this.newsBuffer[0];
-      this.logger.log(\`📰 Selected top news: \${topNews.priority} - \${topNews.newsItem.title.substring(0, 50)}\`);
+      this.logger.log(`📰 Selected top news: ${topNews.priority} - ${topNews.newsItem.title.substring(0, 50)}`);
 
       const analyses = new Map();
       analyses.set('en', topNews.analysisResult);
@@ -135,7 +135,7 @@ export class CronService {
       });
 
       this.newsBuffer = this.newsBuffer.filter(n => n !== topNews);
-      this.logger.log(\`✅ Broadcast complete. Remaining buffer: \${this.newsBuffer.length}\`);
+      this.logger.log(`✅ Broadcast complete. Remaining buffer: ${this.newsBuffer.length}`);
     } catch (error) {
       this.logger.error('Error in broadcastNews:', error);
     } finally {
