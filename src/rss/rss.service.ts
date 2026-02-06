@@ -133,7 +133,7 @@ export class RssService {
             title,
             description: description.substring(0, 500), // Limit description length
             link: item.link || '',
-            image: this.extractImageFromItem(item),
+            imageUrl: this.extractImageFromItem(item),
             pubDate: item.pubDate || new Date().toISOString()
           };
 
