@@ -131,7 +131,7 @@ export class TelegramService implements OnModuleInit {
         } else {
           await this.bot.telegram.sendMessage(channel.id, postHtml, {
             parse_mode: 'HTML',
-            disable_web_page_preview: false
+            disableWebPagePreview: false
           });
         }
         
