@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
-import { Update } from 'telegraf';
+import { Update } from 'telegraf/typings/core/types/typegram';
 
 @Controller('telegram')
 export class TelegramController {
