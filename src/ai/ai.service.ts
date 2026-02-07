@@ -25,13 +25,10 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly apiKey: string;
   private readonly baseUrl: string;
-  private readonly model: string;
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('ABACUSAI_API_KEY') || '';
     this.baseUrl = 'https://routellm.abacus.ai/v1';
-    // Указываем конкретную модель
-    this.model = 'deepseek-v3'; 
   }
 
   async analyzeNewsUnified(newsItem: NewsItem): Promise<{
@@ -74,7 +71,7 @@ export class AiService {
       const response = await axios.post(
         `${this.baseUrl}/chat/completions`,
         {
-          model: this.model,
+          // МЫ НЕ УКАЗЫВАЕМ МОДЕЛЬ - RouteLLM выберет сам
           messages: [{ role: 'user', content: prompt }],
           response_format: { type: 'json_object' },
           temperature: 0.7,
@@ -97,12 +94,11 @@ export class AiService {
         postRu: result.postRu,
       };
     } catch (error: any) {
-      this.logger.error(`Error in unified analysis with ${this.model}`);
+      this.logger.error(`Error in unified analysis`);
       if (error.response) {
         this.logger.error(`AI API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
       }
       
-      // Фоллбек на случай ошибки API
       return {
         priority: 'GREEN',
         priorityReason: 'AI Error Fallback',
