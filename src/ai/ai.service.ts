@@ -28,7 +28,7 @@ export class AiService {
   private readonly model: string;
 
   constructor(private configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('ABACUSAI_API_KEY');
+    this.apiKey = this.configService.get<string>('ABACUSAI_API_KEY') || '';
     this.baseUrl = 'https://routellm.abacus.ai/v1';
     this.model = 'google/gemini-2.0-flash-001';
   }
@@ -80,32 +80,4 @@ export class AiService {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const result = JSON.parse(response.data.choices[0].message.content);
-      return {
-        priority: result.priority || 'GREEN',
-        priorityReason: result.priorityReason || 'No reason provided',
-        postEn: result.postEn,
-        postRu: result.postRu,
-      };
-    } catch (error) {
-      this.logger.error(`Error in unified analysis:`);
-      this.logger.error(error);
-      if (error.response) {
-        this.logger.error(`AI API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-      }
-      throw new Error(`AI API error: ${error.response?.status || 500}`);
-    }
-  }
-
-  formatTelegramPost(news: NewsItem, lang: Language): string {
-    const content = lang === 'en' ? news.postEn : news.postRu;
-    const emoji = news.priority === 'RED' ? '🔴' : news.priority === 'YELLOW' ? '🟡' : '🟢';
-    return `${emoji} ${content}\n\n<a href="${news.link}">Source</a>`;
-  }
-}
+            'Authorization
