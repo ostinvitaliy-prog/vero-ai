@@ -5,7 +5,7 @@ import { DatabaseService } from '../database/database.service';
 import { AiService, NewsItem, Language } from '../ai/ai.service';
 import { RssService } from '../rss/rss.service';
 import { getTranslation } from '../common/translations';
-import { resolveNewsImage } from '../common/image-validator';
+import { validateImageUrl } from '../common/image-validator';
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
@@ -49,6 +49,10 @@ export class TelegramService implements OnModuleInit {
   }
 
   private async handleStart(ctx: Context) {
+    if (!ctx.from) {
+      this.logger.warn('ctx.from is undefined in handleStart');
+      return;
+    }
     try {
       const userId = BigInt(ctx.from.id);
       let user = await this.databaseService.getUser(userId);
@@ -58,7 +62,7 @@ export class TelegramService implements OnModuleInit {
         user = await this.databaseService.createUser(userId, detectedLang);
       }
 
-      const totalUsers = await this.databaseService.users.count();
+      const totalUsers = await this.databaseService.sent_news.count();
       const lang = user.lang as Language;
 
       const welcomeText = getTranslation(lang, 'welcomeMsg1')
@@ -76,6 +80,10 @@ export class TelegramService implements OnModuleInit {
   }
 
   private async handleLanguageSelection(ctx: Context, lang: Language) {
+    if (!ctx.from) {
+      this.logger.warn('ctx.from is undefined in handleLanguageSelection');
+      return;
+    }
     try {
       const userId = BigInt(ctx.from.id);
       await this.databaseService.updateUserLanguage(userId, lang);
@@ -91,14 +99,17 @@ export class TelegramService implements OnModuleInit {
       { id: this.configService.get('TELEGRAM_CHANNEL_RU'), lang: 'ru' as Language }
     ];
 
-    const imageUrl = await resolveNewsImage(news.imageUrl);
+    let imageUrl = news.imageUrl;
+    if (imageUrl && !(await validateImageUrl(imageUrl))) {
+      imageUrl = undefined;
+    }
 
     for (const channel of channels) {
       if (!channel.id) continue;
 
       try {
         const postHtml = this.aiService.formatTelegramPost(news, channel.lang);
-        
+
         if (imageUrl) {
           await this.bot.telegram.sendPhoto(channel.id, imageUrl, {
             caption: postHtml,
@@ -107,7 +118,7 @@ export class TelegramService implements OnModuleInit {
         } else {
           await this.bot.telegram.sendMessage(channel.id, postHtml, {
             parse_mode: 'HTML',
-            link_preview_options: { is_disabled: false }
+            disable_web_page_preview: false
           });
         }
       } catch (error) {
