@@ -83,7 +83,7 @@ export class CronService {
     }
   }
 
-  @Cron('0 * * * ')
+  @Cron('0 * * * *')
   async broadcastNews() {
     if (this.isBroadcasting) {
       this.logger.log('⏭️ Previous broadcast still processing, skipping...');
@@ -121,7 +121,6 @@ export class CronService {
       await this.databaseService.sent_news.create({
         data: {
           news_hash: newsHash,
-          priority: topNews.priority,
           sent_at: new Date()
         }
       });
