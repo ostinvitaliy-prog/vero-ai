@@ -8,10 +8,27 @@ export class RssService {
   private readonly logger = new Logger(RssService.name);
   private parser = new Parser();
 
+  private feeds = [
+    'https://cryptonews.com/news/feed',
+    'https://cointelegraph.com/rss',
+    'https://news.bitcoin.com/feed',
+    'https://www.coindesk.com/arc/outboundfeeds/rss/',
+    'https://cryptoslate.com/feed/',
+    'https://www.newsbtc.com/feed/',
+    'https://bitcoinist.com/feed/',
+    'https://www.ccn.com/feed/',
+    'https://cryptopotato.com/feed/'
+  ];
+
   async getNewsForPosting(): Promise<NewsItem[]> {
-    // Implement reading multiple feeds and merging logic
-    // For now return empty array to avoid runtime issues
-    return [];
+    const allNews: NewsItem[] = [];
+    for (const feedUrl of this.feeds) {
+      const news = await this.parseFeed(feedUrl);
+      allNews.push(...news);
+    }
+    // Optionally sort by pubDate descending
+    allNews.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+    return allNews;
   }
 
   generateNewsHash(newsItem: NewsItem): string {
@@ -19,7 +36,6 @@ export class RssService {
   }
 
   extractImageFromItem(item: any): string | undefined {
-    // try common places
     return item.enclosure?.url || item.image?.url || item['media:content']?.url || undefined;
   }
 
