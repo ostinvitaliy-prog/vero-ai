@@ -1,107 +1,138 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RssService } from '../rss/rss.service';
 import { AiService } from '../ai/ai.service';
-import { NewsItem } from '../ai/ai.service';
 import { DatabaseService } from '../database/database.service';
 import { TelegramService } from '../telegram/telegram.service';
 
 @Injectable()
-export class CronService {
+export class CronService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CronService.name);
-  private newsBuffer: NewsItem[] = [];
+  private isScanning = false;
 
   constructor(
-    private readonly rssService: RssService,
-    private readonly aiService: AiService,
-    private readonly databaseService: DatabaseService,
-    private readonly telegramService: TelegramService,
-  ) {
-    this.logger.log('✅ CronService initialized');
+    private rssService: RssService,
+    private aiService: AiService,
+    private db: DatabaseService,
+    private telegramService: TelegramService,
+  ) {}
+
+  // Выполняется при запуске приложения
+  async onApplicationBootstrap() {
+    this.logger.log('🚀 Initializing startup scan...');
+    await this.scanNews();
+    
+    // Сразу после сканирования постим ОДНУ новость для проверки
+    this.logger.log('📤 Posting one immediate news item for verification...');
+    await this.postOneImmediate();
   }
 
+  // Скан каждый час
   @Cron(CronExpression.EVERY_HOUR)
+  async handleCron() {
+    await this.scanNews();
+  }
+
+  // Постинг по расписанию (ТЗ: 9, 13, 17, 21)
+  @Cron('0 9,13,17,21 * * *')
+  async handlePosting() {
+    this.logger.log('⏰ Scheduled posting time reached.');
+    await this.postNews();
+  }
+
   async scanNews() {
-    this.logger.log('🔍 Starting hourly news scan...');
+    if (this.isScanning) return;
+    this.isScanning = true;
+
     try {
-      const allNews = await this.rssService.fetchAllNews();
-      this.logger.log(`📰 Fetched ${allNews.length} news items from RSS`);
+      this.logger.log('🔍 Starting news scan...');
+      const items = await this.rssService.fetchFeeds();
+      this.logger.log(`📰 Fetched ${items.length} news items from RSS`);
 
-      const existingHashes = await this.databaseService.getAllNewsHashes();
-      const newNews = allNews.filter((item) => !existingHashes.includes(item.link));
+      let newCount = 0;
+      for (const item of items) {
+        const exists = await this.db.news.findUnique({ where: { link: item.link } });
+        if (!exists) {
+          this.logger.log(`🤖 Analyzing: ${item.title.slice(0, 60)}...`);
+          const analysis = await this.aiService.analyzeNewsUnified(item);
 
-      this.logger.log(`🆕 Found ${newNews.length} new items`);
-
-      for (const newsItem of newNews) {
-        try {
-          this.logger.log(`🤖 Analyzing: ${newsItem.title.substring(0, 60)}...`);
-
-          const analysisResult = await this.aiService.analyzeNewsUnified(newsItem);
-
-          const enrichedNews: NewsItem = {
-            ...newsItem,
-            priority: analysisResult.priority,
-            priorityReason: analysisResult.priorityReason,
-            postEn: analysisResult.postEn,
-            postRu: analysisResult.postRu,
-          };
-
-          await this.databaseService.saveNews(enrichedNews);
-
-          if (enrichedNews.priority === 'RED' || enrichedNews.priority === 'YELLOW') {
-            this.newsBuffer.push(enrichedNews);
-            this.logger.log(`✅ Added to buffer: ${enrichedNews.priority} - ${enrichedNews.title.substring(0, 40)}...`);
+          if (analysis.priority === 'RED' || analysis.priority === 'YELLOW') {
+            await this.db.news.create({
+              data: {
+                ...item,
+                priority: analysis.priority,
+                priorityReason: analysis.priorityReason,
+                postEn: analysis.postEn,
+                postRu: analysis.postRu,
+                isPosted: false,
+              },
+            });
+            this.logger.log(`✅ Added to buffer: ${analysis.priority} - ${item.title.slice(0, 50)}...`);
+            newCount++;
           }
-        } catch (error) {
-          this.logger.error('Error analyzing news item:');
-          this.logger.error(error);
         }
       }
-
-      this.logger.log(`✅ Scan complete. Buffer size: ${this.newsBuffer.length}`);
-    } catch (error) {
-      this.logger.error('Error in scanNews:');
-      this.logger.error(error);
+      this.logger.log(`🆕 Scan complete. Added ${newCount} items to buffer.`);
+    } catch (e) {
+      this.logger.error('❌ Scan failed', e);
+    } finally {
+      this.isScanning = false;
     }
   }
 
-  @Cron('0 9,13,17,21 * * *')
+  // Метод для публикации ОДНОЙ новости (для старта)
+  async postOneImmediate() {
+    const pending = await this.db.news.findMany({
+      where: { isPosted: false },
+      orderBy: { pubDate: 'desc' },
+      take: 1,
+    });
+
+    if (pending.length > 0) {
+      const news = pending[0];
+      this.logger.log(`📤 Posting immediate news: ${news.title}`);
+      
+      // Постим в оба канала
+      await this.telegramService.sendPost(news, 'en');
+      await this.telegramService.sendPost(news, 'ru');
+
+      await this.db.news.update({
+        where: { id: news.id },
+        data: { isPosted: true },
+      });
+    } else {
+      this.logger.warn('⚠️ No news in buffer to post immediately.');
+    }
+  }
+
+  // Основной метод постинга (для крона)
   async postNews() {
-    this.logger.log('📤 Starting scheduled post...');
-    try {
-      if (this.newsBuffer.length === 0) {
-        this.logger.warn('⚠️ Buffer is empty, nothing to post');
-        return;
+    const pending = await this.db.news.findMany({
+      where: { isPosted: false },
+      orderBy: { pubDate: 'desc' },
+      take: 5, // Берем до 5 свежих новостей за раз
+    });
+
+    if (pending.length === 0) {
+      this.logger.log('📭 Buffer is empty, nothing to post.');
+      return;
+    }
+
+    for (const news of pending) {
+      try {
+        await this.telegramService.sendPost(news, 'en');
+        await this.telegramService.sendPost(news, 'ru');
+        
+        await this.db.news.update({
+          where: { id: news.id },
+          data: { isPosted: true },
+        });
+        
+        // Небольшая пауза между постами, чтобы не спамить API Телеграма
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      } catch (e) {
+        this.logger.error(`❌ Failed to post news ${news.id}`, e);
       }
-
-      const redNews = this.newsBuffer.filter((n) => n.priority === 'RED');
-      const yellowNews = this.newsBuffer.filter((n) => n.priority === 'YELLOW');
-
-      let selectedNews: NewsItem | null = null;
-
-      if (redNews.length > 0) {
-        selectedNews = redNews[0];
-      } else if (yellowNews.length > 0) {
-        selectedNews = yellowNews[0];
-      }
-
-      if (!selectedNews) {
-        this.logger.warn('⚠️ No RED or YELLOW news in buffer');
-        return;
-      }
-
-      this.logger.log(`📢 Posting: ${selectedNews.title.substring(0, 60)}...`);
-
-      await this.telegramService.postNews(selectedNews);
-
-      await this.databaseService.markAsPosted(selectedNews.link);
-
-      this.newsBuffer = this.newsBuffer.filter((n) => n.link !== selectedNews.link);
-
-      this.logger.log(`✅ Posted successfully. Buffer size: ${this.newsBuffer.length}`);
-    } catch (error) {
-      this.logger.error('Error in postNews:');
-      this.logger.error(error);
     }
   }
 }
