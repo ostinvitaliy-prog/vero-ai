@@ -1,12 +1,14 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Markup, Context } from 'telegraf';
-import type { Update } from 'telegraf';
 import { DatabaseService } from '../database/database.service';
 import { AiService, NewsItem, Language } from '../ai/ai.service';
 import { RssService } from '../rss/rss.service';
 import { getTranslation } from '../common/translations';
 import { validateImageUrl } from '../common/image-validator';
+
+// Локальное объявление типа Update (минимальное)
+type Update = any;
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
