@@ -1,6 +1,8 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { TelegramService } from './telegram/telegram.service';
-import type { Update } from 'telegraf';
+
+// Локальное объявление типа Update (минимальное)
+type Update = any;
 
 @Controller()
 export class AppController {
