@@ -2,6 +2,24 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
+export interface NewsItem {
+  id?: number;
+  title: string;
+  link: string;
+  content: string;
+  pubDate: Date;
+  source: string;
+  imageUrl?: string;
+  priority?: string;
+  priorityReason?: string;
+  postEn?: string;
+  postRu?: string;
+  isPosted?: boolean;
+  createdAt?: Date;
+}
+
+export type Language = 'en' | 'ru';
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -10,32 +28,31 @@ export class AiService {
   private readonly model: string;
 
   constructor(private configService: ConfigService) {
-    // Используем ABACUSAI_API_KEY из твоих настроек Render
     this.apiKey = this.configService.get<string>('ABACUSAI_API_KEY');
-    // Прямая ссылка на RouteLLM API
     this.baseUrl = 'https://routellm.abacus.ai/v1';
-    // Используем эффективную модель
     this.model = 'google/gemini-2.0-flash-001';
   }
 
-  async analyzeNewsUnified(title: string, content: string): Promise<{
+  async analyzeNewsUnified(newsItem: NewsItem): Promise<{
     priority: 'RED' | 'YELLOW' | 'GREEN';
+    priorityReason: string;
     postEn: string;
     postRu: string;
   }> {
     try {
       const prompt = `
         Analyze this crypto news:
-        Title: ${title}
-        Content: ${content}
+        Title: ${newsItem.title}
+        Content: ${newsItem.content}
 
         1. Determine priority:
            - RED: Critical market-moving news, major hacks, or massive regulatory shifts.
            - YELLOW: Important updates, price movements, or significant project news.
            - GREEN: General news, minor updates, or routine reports.
 
-        2. Create a short Telegram post in English.
-        3. Create a short Telegram post in Russian.
+        2. Provide a brief reason for the priority.
+        3. Create a short Telegram post in English.
+        4. Create a short Telegram post in Russian.
 
         Format:
         - Use HTML tags (<b>, <i>, <a>).
@@ -47,6 +64,7 @@ export class AiService {
         Return ONLY a JSON object:
         {
           "priority": "RED/YELLOW/GREEN",
+          "priorityReason": "Brief explanation",
           "postEn": "HTML_CONTENT",
           "postRu": "HTML_CONTENT"
         }
@@ -71,11 +89,13 @@ export class AiService {
       const result = JSON.parse(response.data.choices[0].message.content);
       return {
         priority: result.priority || 'GREEN',
+        priorityReason: result.priorityReason || 'No reason provided',
         postEn: result.postEn,
         postRu: result.postRu,
       };
     } catch (error) {
-      this.logger.error(`Error in unified analysis: ${error.message}`);
+      this.logger.error(`Error in unified analysis:`);
+      this.logger.error(error);
       if (error.response) {
         this.logger.error(`AI API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
       }
@@ -83,8 +103,9 @@ export class AiService {
     }
   }
 
-  formatTelegramPost(content: string, sourceUrl: string, priority: string): string {
-    const emoji = priority === 'RED' ? '🔴' : priority === 'YELLOW' ? '🟡' : '🟢';
-    return `${emoji} ${content}\n\n<a href="${sourceUrl}">Source</a>`;
+  formatTelegramPost(news: NewsItem, lang: Language): string {
+    const content = lang === 'en' ? news.postEn : news.postRu;
+    const emoji = news.priority === 'RED' ? '🔴' : news.priority === 'YELLOW' ? '🟡' : '🟢';
+    return `${emoji} ${content}\n\n<a href="${news.link}">Source</a>`;
   }
 }
