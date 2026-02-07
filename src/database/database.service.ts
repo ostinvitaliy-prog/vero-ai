@@ -1,54 +1,56 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
-import { execSync } from 'child_process';
+import { NewsItem } from '../ai/ai.service';
 
 @Injectable()
-export class DatabaseService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class DatabaseService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(DatabaseService.name);
 
-  async onModuleInit() {
-    try {
-      this.logger.log('⏳ Connecting to database and syncing schema...');
-      
-      // Принудительная синхронизация схемы перед подключением
-      try {
-        this.logger.log('Syncing Prisma schema via db push...');
-        execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
-      } catch (syncError) {
-        this.logger.error('Schema sync warning (continuing):', syncError);
-      }
-
-      await this.$connect();
-      this.logger.log('✅ Database connected and schema synced');
-    } catch (error) {
-      this.logger.error('❌ Database connection failed:', error);
-    }
-  }
-
-  async onModuleDestroy() {
-    await this.$disconnect();
-  }
-
-  // Helper methods for common queries
-  async getUser(userId: bigint) {
-    return this.users.findUnique({
-      where: { user_id: userId },
-    });
-  }
-
-  async createUser(userId: bigint, lang: string) {
-    return this.users.create({
-      data: {
-        user_id: userId,
-        lang: lang,
+  constructor(private configService: ConfigService) {
+    super({
+      datasources: {
+        db: {
+          url: configService.get<string>('DATABASE_URL'),
+        },
       },
     });
   }
 
-  async updateUserLanguage(userId: bigint, lang: string) {
-    return this.users.update({
-      where: { user_id: userId },
-      data: { lang },
+  async onModuleInit() {
+    await this.$connect();
+    this.logger.log('✅ Database connected');
+  }
+
+  async getAllNewsHashes(): Promise<string[]> {
+    const news = await this.news.findMany({
+      select: { link: true },
+    });
+    return news.map((n) => n.link);
+  }
+
+  async saveNews(newsItem: NewsItem): Promise<void> {
+    await this.news.create({
+      data: {
+        title: newsItem.title,
+        link: newsItem.link,
+        content: newsItem.content,
+        pubDate: newsItem.pubDate,
+        source: newsItem.source,
+        imageUrl: newsItem.imageUrl,
+        priority: newsItem.priority,
+        priorityReason: newsItem.priorityReason,
+        postEn: newsItem.postEn,
+        postRu: newsItem.postRu,
+        isPosted: false,
+      },
+    });
+  }
+
+  async markAsPosted(link: string): Promise<void> {
+    await this.news.updateMany({
+      where: { link },
+      data: { isPosted: true },
     });
   }
 }
