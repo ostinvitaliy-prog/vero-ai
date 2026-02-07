@@ -48,14 +48,14 @@ export class CronService {
         try {
           const newsHash = this.rssService.generateNewsHash(newsItem);
 
-          const alreadyInBuffer = this.newsBuffer.find(n => 
+          const alreadyInBuffer = this.newsBuffer.find(n =>
             this.rssService.generateNewsHash(n.newsItem) === newsHash
           );
           if (alreadyInBuffer) {
             continue;
           }
 
-          const alreadyPosted = await this.databaseService.sentNews.findUnique({
+          const alreadyPosted = await this.databaseService.sent_news.findUnique({
             where: { news_hash: newsHash }
           });
           if (alreadyPosted) {
@@ -105,7 +105,7 @@ export class CronService {
     try {
       const priorityOrder = { RED: 3, YELLOW: 2, GREEN: 1 };
       this.newsBuffer.sort((a, b) => {
-        const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+        const priorityDiff = priorityOrder[b.priority as keyof typeof priorityOrder] - priorityOrder[a.priority as keyof typeof priorityOrder];
         if (priorityDiff !== 0) return priorityDiff;
         return b.scannedAt.getTime() - a.scannedAt.getTime();
       });
@@ -113,18 +113,14 @@ export class CronService {
       const topNews = this.newsBuffer[0];
       this.logger.log(`📰 Selected top news: ${topNews.priority} - ${topNews.newsItem.title.substring(0, 50)}`);
 
-      const analyses = new Map();
+      const analyses = new Map<string, any>();
       analyses.set('en', topNews.analysisResult);
       analyses.set('ru', topNews.analysisResult);
 
-      await this.telegramService.postToChannels(
-        topNews.newsItem,
-        topNews.priority,
-        analyses
-      );
+      await this.telegramService.broadcastNews(topNews.newsItem);
 
       const newsHash = this.rssService.generateNewsHash(topNews.newsItem);
-      await this.databaseService.sentNews.create({
+      await this.databaseService.sent_news.create({
         data: {
           news_hash: newsHash,
           title: topNews.newsItem.title,
