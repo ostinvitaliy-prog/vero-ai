@@ -51,16 +51,12 @@ export class CronService {
           const alreadyInBuffer = this.newsBuffer.find(n =>
             this.rssService.generateNewsHash(n.newsItem) === newsHash
           );
-          if (alreadyInBuffer) {
-            continue;
-          }
+          if (alreadyInBuffer) continue;
 
           const alreadyPosted = await this.databaseService.sent_news.findUnique({
             where: { news_hash: newsHash }
           });
-          if (alreadyPosted) {
-            continue;
-          }
+          if (alreadyPosted) continue;
 
           this.logger.log(`🤖 Analyzing: ${newsItem.title.substring(0, 60)}...`);
           const analysisResult = await this.aiService.analyzeNewsUnified(newsItem);
@@ -113,17 +109,13 @@ export class CronService {
       const topNews = this.newsBuffer[0];
       this.logger.log(`📰 Selected top news: ${topNews.priority} - ${topNews.newsItem.title.substring(0, 50)}`);
 
-      const analyses = new Map<string, any>();
-      analyses.set('en', topNews.analysisResult);
-      analyses.set('ru', topNews.analysisResult);
-
+      // broadcast via TelegramService (it will call AI formatting internally)
       await this.telegramService.broadcastNews(topNews.newsItem);
 
       const newsHash = this.rssService.generateNewsHash(topNews.newsItem);
       await this.databaseService.sent_news.create({
         data: {
           news_hash: newsHash,
-          title: topNews.newsItem.title,
           link: topNews.newsItem.link,
           priority: topNews.priority,
           sent_at: new Date()
