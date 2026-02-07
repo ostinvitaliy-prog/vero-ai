@@ -1,36 +1,19 @@
-import { Controller, Get, Post } from '@nestjs/common';
-import { AppService } from './app.service';
-import { CronService } from './cron/cron.service';
-import { TelegramService } from './telegram/telegram.service';
+import { Controller, Post, Body, Logger } from '@nestjs/common';
+import { TelegramService } from './telegram.service';
+import { Update } from 'telegraf/typings/core/types/typegram';
 
-@Controller()
-export class AppController {
-  constructor(
-    private readonly appService: AppService,
-    private readonly cronService: CronService,
-    private readonly telegramService: TelegramService
-  ) {}
+@Controller('telegram')
+export class TelegramController {
+  private readonly logger = new Logger(TelegramController.name);
 
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
-  }
+  constructor(private readonly telegramService: TelegramService) {}
 
-  @Post('admin/scan-now')
-  async scanNow() {
-    await this.cronService.manualScan();
-    return { success: true, message: 'News scan triggered' };
-  }
-
-  @Post('admin/broadcast-now')
-  async broadcastNow() {
-    await this.cronService.manualBroadcast();
-    return { success: true, message: 'News broadcast triggered' };
-  }
-
-  @Post('admin/post-welcome')
-  async postWelcome() {
-    await this.telegramService.postWelcomeToChannels();
-    return { success: true, message: 'Welcome posts sent to both channels' };
+  @Post('webhook')
+  async handleUpdate(@Body() update: Update) {
+    try {
+      await this.telegramService.bot.handleUpdate(update);
+    } catch (error) {
+      this.logger.error('Error handling Telegram update:', error);
+    }
   }
 }
