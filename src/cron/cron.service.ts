@@ -17,122 +17,90 @@ export class CronService implements OnApplicationBootstrap {
     private telegramService: TelegramService,
   ) {}
 
-  // Выполняется при запуске приложения
+  // При старте приложения — сразу одна новость
   async onApplicationBootstrap() {
-    this.logger.log('🚀 Initializing startup scan...');
-    await this.scanNews();
-    
-    // Сразу после сканирования постим ОДНУ новость для проверки
-    this.logger.log('📤 Posting one immediate news item for verification...');
-    await this.postOneImmediate();
+    this.logger.log('🚀 Initializing startup scan and posting...');
+    await this.scanAndPostOne();
   }
 
-  // Скан каждый час
+  // Каждый час — сканируем и постим ОДНУ самую важную новость
   @Cron(CronExpression.EVERY_HOUR)
-  async handleCron() {
-    await this.scanNews();
+  async handleHourlyScan() {
+    await this.scanAndPostOne();
   }
 
-  // Постинг по расписанию (ТЗ: 9, 13, 17, 21)
-  @Cron('0 9,13,17,21 * * *')
-  async handlePosting() {
-    this.logger.log('⏰ Scheduled posting time reached.');
-    await this.postNews();
-  }
-
-  async scanNews() {
-    if (this.isScanning) return;
+  async scanAndPostOne() {
+    if (this.isScanning) {
+      this.logger.warn('⚠️ Scan already in progress, skipping...');
+      return;
+    }
+    
     this.isScanning = true;
 
     try {
-      this.logger.log('🔍 Starting news scan...');
+      this.logger.log('🔍 Starting hourly news scan...');
       const items = await this.rssService.fetchFeeds();
       this.logger.log(`📰 Fetched ${items.length} news items from RSS`);
 
-      let newCount = 0;
-      for (const item of items) {
-        const exists = await this.db.news.findUnique({ where: { link: item.link } });
-        if (!exists) {
-          this.logger.log(`🤖 Analyzing: ${item.title.slice(0, 60)}...`);
-          const analysis = await this.aiService.analyzeNewsUnified(item);
+      let redNews = null;
+      let yellowNews = null;
 
-          if (analysis.priority === 'RED' || analysis.priority === 'YELLOW') {
-            await this.db.news.create({
-              data: {
-                ...item,
-                priority: analysis.priority,
-                priorityReason: analysis.priorityReason,
-                postEn: analysis.postEn,
-                postRu: analysis.postRu,
-                isPosted: false,
-              },
-            });
-            this.logger.log(`✅ Added to buffer: ${analysis.priority} - ${item.title.slice(0, 50)}...`);
-            newCount++;
-          }
+      for (const item of items) {
+        // Проверяем, не публиковали ли мы эту новость ранее
+        const exists = await this.db.news.findUnique({ where: { link: item.link } });
+        if (exists) continue;
+
+        this.logger.log(`🤖 Analyzing: ${item.title.slice(0, 60)}...`);
+        const analysis = await this.aiService.analyzeNewsUnified(item);
+
+        // Сохраняем в базу для истории
+        await this.db.news.create({
+          data: {
+            ...item,
+            priority: analysis.priority,
+            priorityReason: analysis.priorityReason,
+            postEn: analysis.postEn,
+            postRu: analysis.postRu,
+            isPosted: false,
+          },
+        });
+
+        // Запоминаем самую важную новость
+        if (analysis.priority === 'RED' && !redNews) {
+          redNews = { ...item, ...analysis };
+          break; // RED — максимальный приоритет, дальше можно не искать
+        }
+        
+        if (analysis.priority === 'YELLOW' && !yellowNews) {
+          yellowNews = { ...item, ...analysis };
         }
       }
-      this.logger.log(`🆕 Scan complete. Added ${newCount} items to buffer.`);
-    } catch (e) {
-      this.logger.error('❌ Scan failed', e);
-    } finally {
-      this.isScanning = false;
-    }
-  }
 
-  // Метод для публикации ОДНОЙ новости (для старта)
-  async postOneImmediate() {
-    const pending = await this.db.news.findMany({
-      where: { isPosted: false },
-      orderBy: { pubDate: 'desc' },
-      take: 1,
-    });
+      // Выбираем что постить: RED > YELLOW
+      const newsToPost = redNews || yellowNews;
 
-    if (pending.length > 0) {
-      const news = pending[0];
-      this.logger.log(`📤 Posting immediate news: ${news.title}`);
-      
-      // Постим в оба канала
-      await this.telegramService.sendPost(news, 'en');
-      await this.telegramService.sendPost(news, 'ru');
-
-      await this.db.news.update({
-        where: { id: news.id },
-        data: { isPosted: true },
-      });
-    } else {
-      this.logger.warn('⚠️ No news in buffer to post immediately.');
-    }
-  }
-
-  // Основной метод постинга (для крона)
-  async postNews() {
-    const pending = await this.db.news.findMany({
-      where: { isPosted: false },
-      orderBy: { pubDate: 'desc' },
-      take: 5, // Берем до 5 свежих новостей за раз
-    });
-
-    if (pending.length === 0) {
-      this.logger.log('📭 Buffer is empty, nothing to post.');
-      return;
-    }
-
-    for (const news of pending) {
-      try {
-        await this.telegramService.sendPost(news, 'en');
-        await this.telegramService.sendPost(news, 'ru');
+      if (newsToPost) {
+        this.logger.log(`📤 Posting ${newsToPost.priority} news: ${newsToPost.title.slice(0, 50)}...`);
         
-        await this.db.news.update({
-          where: { id: news.id },
+        // Постим в оба канала
+        await this.telegramService.sendPost(newsToPost, 'en');
+        await this.telegramService.sendPost(newsToPost, 'ru');
+
+        // Помечаем как опубликованную
+        await this.db.news.updateMany({
+          where: { link: newsToPost.link },
           data: { isPosted: true },
         });
-        
-        // Небольшая пауза между постами, чтобы не спамить API Телеграма
-        await new Promise(resolve => setTimeout(resolve, 3000));
-      } catch (e) {
-        this.logger.error(`❌ Failed to post news ${news.id}`, e);
+
+        this.logger.log('✅ News posted successfully!');
+      } else {
+        this.logger.log('📭 No important news found in this scan.');
       }
+
+    } catch (e) {
+      this.logger.error('❌ Scan and post failed', e);
+    } finally {
+      this.isScanning = false;
     }
   }
 }
