@@ -1,136 +1,107 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
-import { DatabaseService } from '../database/database.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { RssService } from '../rss/rss.service';
 import { AiService } from '../ai/ai.service';
-import { TelegramService } from '../telegram/telegram.service';
 import { NewsItem } from '../ai/ai.service';
-
-interface BufferedNews {
-  newsItem: NewsItem;
-  priority: string;
-  priorityReason: string;
-  analysisResult: any;
-  scannedAt: Date;
-}
+import { DatabaseService } from '../database/database.service';
+import { TelegramService } from '../telegram/telegram.service';
 
 @Injectable()
 export class CronService {
   private readonly logger = new Logger(CronService.name);
-  private isScanning = false;
-  private isBroadcasting = false;
-  private newsBuffer: BufferedNews[] = [];
+  private newsBuffer: NewsItem[] = [];
 
   constructor(
-    private databaseService: DatabaseService,
-    private rssService: RssService,
-    private aiService: AiService,
-    private telegramService: TelegramService
+    private readonly rssService: RssService,
+    private readonly aiService: AiService,
+    private readonly databaseService: DatabaseService,
+    private readonly telegramService: TelegramService,
   ) {
     this.logger.log('✅ CronService initialized');
   }
 
-  @Cron('*/15 * * * *')
+  @Cron(CronExpression.EVERY_HOUR)
   async scanNews() {
-    if (this.isScanning) {
-      this.logger.log('⏭️ Previous scan still processing, skipping...');
-      return;
-    }
-
-    this.isScanning = true;
-    this.logger.log('🔍 Starting 15-minute news scan...');
-
+    this.logger.log('🔍 Starting hourly news scan...');
     try {
-      const latestNews = await this.rssService.getNewsForPosting();
-      this.logger.log(`📰 Found ${latestNews.length} news items to analyze`);
+      const allNews = await this.rssService.fetchAllNews();
+      this.logger.log(`📰 Fetched ${allNews.length} news items from RSS`);
 
-      for (const newsItem of latestNews) {
+      const existingHashes = await this.databaseService.getAllNewsHashes();
+      const newNews = allNews.filter((item) => !existingHashes.includes(item.link));
+
+      this.logger.log(`🆕 Found ${newNews.length} new items`);
+
+      for (const newsItem of newNews) {
         try {
-          const newsHash = this.rssService.generateNewsHash(newsItem);
+          this.logger.log(`🤖 Analyzing: ${newsItem.title.substring(0, 60)}...`);
 
-          const alreadyInBuffer = this.newsBuffer.find(n =>
-            this.rssService.generateNewsHash(n.newsItem) === newsHash
-          );
-          if (alreadyInBuffer) continue;
-
-          const alreadyPosted = await this.databaseService.sent_news.findUnique({
-            where: { news_hash: newsHash }
-          });
-          if (alreadyPosted) continue;
-
-          this.logger.log(`🤖 Analyzing: ${newsItem.title?.substring(0, 60) ?? ''}...`);
           const analysisResult = await this.aiService.analyzeNewsUnified(newsItem);
 
-          this.newsBuffer.push({
-            newsItem,
+          const enrichedNews: NewsItem = {
+            ...newsItem,
             priority: analysisResult.priority,
             priorityReason: analysisResult.priorityReason,
-            analysisResult,
-            scannedAt: new Date()
-          });
+            postEn: analysisResult.postEn,
+            postRu: analysisResult.postRu,
+          };
 
-          this.logger.log(`✓ Added to buffer: ${analysisResult.priority} - ${newsItem.title?.substring(0, 50) ?? ''}`);
+          await this.databaseService.saveNews(enrichedNews);
+
+          if (enrichedNews.priority === 'RED' || enrichedNews.priority === 'YELLOW') {
+            this.newsBuffer.push(enrichedNews);
+            this.logger.log(`✅ Added to buffer: ${enrichedNews.priority} - ${enrichedNews.title.substring(0, 40)}...`);
+          }
         } catch (error) {
-          this.logger.error(`Error analyzing news item:`, error);
+          this.logger.error('Error analyzing news item:');
+          this.logger.error(error);
         }
       }
 
       this.logger.log(`✅ Scan complete. Buffer size: ${this.newsBuffer.length}`);
     } catch (error) {
-      this.logger.error('Error in scanNews:', error);
-    } finally {
-      this.isScanning = false;
+      this.logger.error('Error in scanNews:');
+      this.logger.error(error);
     }
   }
 
-  @Cron('0 * * * *')
-  async broadcastNews() {
-    if (this.isBroadcasting) {
-      this.logger.log('⏭️ Previous broadcast still processing, skipping...');
-      return;
-    }
-
-    if (this.newsBuffer.length === 0) {
-      this.logger.log('📭 No news in buffer to broadcast');
-      return;
-    }
-
-    this.isBroadcasting = true;
-    this.logger.log('📢 Starting hourly broadcast...');
-
+  @Cron('0 9,13,17,21 * * *')
+  async postNews() {
+    this.logger.log('📤 Starting scheduled post...');
     try {
-      const priorityOrder = { RED: 3, YELLOW: 2, GREEN: 1 };
-      this.newsBuffer.sort((a: BufferedNews, b: BufferedNews) => {
-        const priorityDiff = priorityOrder[b.priority as keyof typeof priorityOrder] - priorityOrder[a.priority as keyof typeof priorityOrder];
-        if (priorityDiff !== 0) return priorityDiff;
-        return b.scannedAt.getTime() - a.scannedAt.getTime();
-      });
-
-      const topNews = this.newsBuffer[0];
-      if (!topNews) {
-        this.logger.log('No top news found after sorting');
-        this.isBroadcasting = false;
+      if (this.newsBuffer.length === 0) {
+        this.logger.warn('⚠️ Buffer is empty, nothing to post');
         return;
       }
 
-      this.logger.log(`📰 Selected top news: ${topNews.priority} - ${topNews.newsItem.title?.substring(0, 50) ?? ''}`);
+      const redNews = this.newsBuffer.filter((n) => n.priority === 'RED');
+      const yellowNews = this.newsBuffer.filter((n) => n.priority === 'YELLOW');
 
-      await this.telegramService.broadcastNews(topNews.newsItem);
+      let selectedNews: NewsItem | null = null;
 
-      const newsHash = this.rssService.generateNewsHash(topNews.newsItem);
-      await this.databaseService.sent_news.create({
-        data: {
-          news_hash: newsHash,
-          sent_at: new Date()
-        }
-      });
+      if (redNews.length > 0) {
+        selectedNews = redNews[0];
+      } else if (yellowNews.length > 0) {
+        selectedNews = yellowNews[0];
+      }
 
-      this.newsBuffer = this.newsBuffer.filter(n => n !== topNews);
-      this.logger.log(`✅ Broadcast complete. Remaining buffer: ${this.newsBuffer.length}`);
+      if (!selectedNews) {
+        this.logger.warn('⚠️ No RED or YELLOW news in buffer');
+        return;
+      }
+
+      this.logger.log(`📢 Posting: ${selectedNews.title.substring(0, 60)}...`);
+
+      await this.telegramService.postNews(selectedNews);
+
+      await this.databaseService.markAsPosted(selectedNews.link);
+
+      this.newsBuffer = this.newsBuffer.filter((n) => n.link !== selectedNews.link);
+
+      this.logger.log(`✅ Posted successfully. Buffer size: ${this.newsBuffer.length}`);
     } catch (error) {
-      this.logger.error('Error in broadcastNews:', error);
-    } finally {
-      this.isBroadcasting = false;
+      this.logger.error('Error in postNews:');
+      this.logger.error(error);
     }
   }
 }
