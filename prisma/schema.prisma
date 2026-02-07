@@ -1,60 +1,58 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PrismaClient } from '@prisma/client';
-import { NewsItem } from '../ai/ai.service';
-import * as crypto from 'crypto-js';
+generator client {
+  provider = "prisma-client-js"
+}
 
-@Injectable()
-export class DatabaseService extends PrismaClient implements OnModuleInit {
-  private readonly logger = new Logger(DatabaseService.name);
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
-  constructor(private configService: ConfigService) {
-    super({
-      datasources: {
-        db: {
-          url: configService.get<string>('DATABASE_URL'),
-        },
-      },
-    });
-  }
+model users {
+  user_id           BigInt        @id
+  lang              String        @db.VarChar(2)
+  join_date         DateTime      @default(now())
+  status            String        @default("Free") @db.VarChar(20)
+  news_feed_enabled Boolean       @default(false)
+  priority_filter   String        @default("yellow") @db.VarChar(10)
+  onboarding_done   Boolean       @default(false)
+  news_read_count   Int           @default(0)
+  
+  vero_balance      Float         @default(0)
+  signup_position   Int?
+  wallet_address    String?       @db.VarChar(255)
+  
+  user_news         user_news[]
+}
 
-  async onModuleInit() {
-    await this.$connect();
-    this.logger.log('✅ Database connected');
-  }
+model sent_news {
+  id         Int      @id @default(autoincrement())
+  news_hash  String   @unique @db.VarChar(255)
+  sent_at    DateTime @default(now())
+}
 
-  async getAllNewsHashes(): Promise<string[]> {
-    const news = await this.sent_news.findMany({
-      select: { news_hash: true },
-    });
-    return news.map((n: any) => n.news_hash);
-  }
+model user_news {
+  id         Int      @id @default(autoincrement())
+  user_id    BigInt
+  news_hash  String   @db.VarChar(255)
+  sent_at    DateTime @default(now())
+  user       users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  
+  @@unique([user_id, news_hash])
+  @@index([user_id])
+}
 
-  async saveNews(newsItem: NewsItem): Promise<void> {
-    const newsHash = crypto.SHA256(newsItem.link).toString();
+model news_priority {
+  id            Int      @id @default(autoincrement())
+  news_hash     String   @unique @db.VarChar(255)
+  priority      String   @db.VarChar(10)
+  priority_reason String? @db.Text
+  created_at    DateTime @default(now())
+  
+  @@index([priority])
+}
 
-    await this.sent_news.create({
-      data: {
-        news_hash: newsHash,
-      },
-    });
-
-    await this.news_priority.create({
-      data: {
-        news_hash: newsHash,
-        priority: newsItem.priority || 'GREEN',
-        priority_reason: newsItem.priorityReason || null,
-      },
-    });
-  }
-
-  async markAsPosted(link: string): Promise<void> {
-    const newsHash = crypto.SHA256(link).toString();
-    
-    await this.sent_news.upsert({
-      where: { news_hash: newsHash },
-      update: { sent_at: new Date() },
-      create: { news_hash: newsHash },
-    });
-  }
+model project_config {
+  id                    Int      @id @default(autoincrement())
+  total_subscribers     Int      @default(0)
+  updated_at            DateTime @updatedAt
 }
