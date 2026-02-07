@@ -15,11 +15,13 @@ export class CronService implements OnApplicationBootstrap {
     private aiService: AiService,
     private db: DatabaseService,
     private telegramService: TelegramService,
-  ) {}
+  ) {
+    this.logger.log('✅ CronService initialized');
+  }
 
   // При старте приложения — сразу одна новость
   async onApplicationBootstrap() {
-    this.logger.log('🚀 Initializing startup scan and posting...');
+    this.logger.log('🚀 Starting initial scan and posting one news...');
     await this.scanAndPostOne();
   }
 
@@ -39,24 +41,33 @@ export class CronService implements OnApplicationBootstrap {
 
     try {
       this.logger.log('🔍 Starting hourly news scan...');
-      const items = await this.rssService.fetchFeeds();
+      // Используем fetchAllFeeds, как в твоем RssService
+      const items = await this.rssService.fetchAllFeeds();
       this.logger.log(`📰 Fetched ${items.length} news items from RSS`);
 
       let redNews = null;
       let yellowNews = null;
 
       for (const item of items) {
-        // Проверяем, не публиковали ли мы эту новость ранее
-        const exists = await this.db.news.findUnique({ where: { link: item.link } });
+        // Проверяем через prisma.news, как в твоем DatabaseService
+        const exists = await this.db.prisma.news.findUnique({ 
+          where: { link: item.link } 
+        });
+        
         if (exists) continue;
 
         this.logger.log(`🤖 Analyzing: ${item.title.slice(0, 60)}...`);
         const analysis = await this.aiService.analyzeNewsUnified(item);
 
-        // Сохраняем в базу для истории
-        await this.db.news.create({
+        // Сохраняем в базу
+        const savedNews = await this.db.prisma.news.create({
           data: {
-            ...item,
+            title: item.title,
+            link: item.link,
+            content: item.content,
+            pubDate: item.pubDate,
+            source: item.source,
+            imageUrl: item.imageUrl,
             priority: analysis.priority,
             priorityReason: analysis.priorityReason,
             postEn: analysis.postEn,
@@ -65,14 +76,14 @@ export class CronService implements OnApplicationBootstrap {
           },
         });
 
-        // Запоминаем самую важную новость
+        // Запоминаем самую важную новость для этого часа
         if (analysis.priority === 'RED' && !redNews) {
-          redNews = { ...item, ...analysis };
-          break; // RED — максимальный приоритет, дальше можно не искать
+          redNews = savedNews;
+          break; // RED — топ приоритет
         }
         
         if (analysis.priority === 'YELLOW' && !yellowNews) {
-          yellowNews = { ...item, ...analysis };
+          yellowNews = savedNews;
         }
       }
 
@@ -82,13 +93,13 @@ export class CronService implements OnApplicationBootstrap {
       if (newsToPost) {
         this.logger.log(`📤 Posting ${newsToPost.priority} news: ${newsToPost.title.slice(0, 50)}...`);
         
-        // Постим в оба канала
-        await this.telegramService.sendPost(newsToPost, 'en');
-        await this.telegramService.sendPost(newsToPost, 'ru');
+        // Используем postNews, как в твоем TelegramService
+        await this.telegramService.postNews(newsToPost, 'en');
+        await this.telegramService.postNews(newsToPost, 'ru');
 
         // Помечаем как опубликованную
-        await this.db.news.updateMany({
-          where: { link: newsToPost.link },
+        await this.db.prisma.news.update({
+          where: { id: newsToPost.id },
           data: { isPosted: true },
         });
 
