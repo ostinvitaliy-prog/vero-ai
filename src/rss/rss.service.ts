@@ -6,52 +6,45 @@ import { NewsItem } from '../ai/ai.service';
 @Injectable()
 export class RssService {
   private readonly logger = new Logger(RssService.name);
-  private parser = new Parser();
+  private readonly parser: Parser;
 
-  private feeds = [
-    'https://cryptonews.com/news/feed',
+  private readonly rssSources = [
     'https://cointelegraph.com/rss',
-    'https://news.bitcoin.com/feed',
-    'https://www.coindesk.com/arc/outboundfeeds/rss/',
+    'https://decrypt.co/feed',
+    'https://cryptopotato.com/feed/',
+    'https://bitcoinist.com/feed/',
+    'https://cryptonews.com/news/feed/',
+    'https://u.today/rss',
     'https://cryptoslate.com/feed/',
     'https://www.newsbtc.com/feed/',
-    'https://bitcoinist.com/feed/',
-    'https://www.ccn.com/feed/',
-    'https://cryptopotato.com/feed/'
+    'https://ambcrypto.com/feed/',
   ];
 
-  async getNewsForPosting(): Promise<NewsItem[]> {
+  constructor() {
+    this.parser = new Parser();
+    this.logger.log('✅ RssService initialized');
+  }
+
+  async fetchAllNews(): Promise<NewsItem[]> {
     const allNews: NewsItem[] = [];
-    for (const feedUrl of this.feeds) {
-      const news = await this.parseFeed(feedUrl);
-      allNews.push(...news);
+
+    for (const source of this.rssSources) {
+      try {
+        const feed = await this.parser.parseURL(source);
+        const items = feed.items.slice(0, 10).map((item) => ({
+          title: item.title || 'No title',
+          link: item.link || '',
+          content: item.contentSnippet || item.content || '',
+          pubDate: new Date(item.pubDate || Date.now()),
+          source: feed.title || source,
+          imageUrl: item.enclosure?.url || undefined,
+        }));
+        allNews.push(...items);
+      } catch (error) {
+        this.logger.error(`Error fetching ${source}:`, error.message);
+      }
     }
-    // Optionally sort by pubDate descending
-    allNews.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+
     return allNews;
-  }
-
-  generateNewsHash(newsItem: NewsItem): string {
-    return crypto.SHA256((newsItem.title || '') + (newsItem.link || '')).toString();
-  }
-
-  extractImageFromItem(item: any): string | undefined {
-    return item.enclosure?.url || item.image?.url || item['media:content']?.url || undefined;
-  }
-
-  async parseFeed(feedUrl: string): Promise<NewsItem[]> {
-    try {
-      const feed = await this.parser.parseURL(feedUrl);
-      return (feed.items || []).map(item => ({
-        title: item.title || '',
-        description: item.contentSnippet || item.content || '',
-        link: item.link || '',
-        pubDate: item.pubDate || '',
-        imageUrl: this.extractImageFromItem(item)
-      }));
-    } catch (error) {
-      this.logger.error(`Failed to parse feed ${feedUrl}:`, error);
-      return [];
-    }
   }
 }
