@@ -1,23 +1,17 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Markup, Context } from 'telegraf';
-import { Update } from 'telegraf/types';
 import { DatabaseService } from '../database/database.service';
-import { AiService, NewsItem } from '../ai/ai.service';
+import { AiService, NewsItem, Language } from '../ai/ai.service';
 import { RssService } from '../rss/rss.service';
-import { getTranslation, Language } from '../common/translations';
+import { getTranslation } from '../common/translations';
 import { resolveNewsImage } from '../common/image-validator';
-
-interface SessionContext extends Context {
-  session?: { awaitingLanguage?: boolean };
-}
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
   private readonly logger = new Logger(TelegramService.name);
   private bot: Telegraf;
   private readonly botToken: string;
-  private newsCache: Map<string, any> = new Map();
 
   constructor(
     private configService: ConfigService,
@@ -27,7 +21,7 @@ export class TelegramService implements OnModuleInit {
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (!token) {
-      throw new Error('TELEGRAM_BOT_TOKEN is not configured in environment variables');
+      throw new Error('TELEGRAM_BOT_TOKEN is not configured');
     }
     this.botToken = token;
   }
@@ -49,19 +43,6 @@ export class TelegramService implements OnModuleInit {
       await this.handleLanguageSelection(ctx, lang);
     });
 
-    this.bot.action('hide_menu', async (ctx) => {
-      try {
-        await ctx.answerCbQuery();
-        await ctx.deleteMessage();
-      } catch (error) {
-        this.logger.error('Error hiding menu:', error);
-      }
-    });
-
-    this.bot.on('callback_query', async (ctx) => {
-      await ctx.answerCbQuery();
-    });
-
     this.bot.catch((err, ctx) => {
       this.logger.error(`Telegram bot error for ${ctx.updateType}:`, err);
     });
@@ -75,7 +56,6 @@ export class TelegramService implements OnModuleInit {
       if (!user) {
         const detectedLang: Language = ctx.from.language_code === 'ru' ? 'ru' : 'en';
         user = await this.databaseService.createUser(userId, detectedLang);
-        this.logger.log(`New user registered: ${userId} (${detectedLang})`);
       }
 
       const totalUsers = await this.databaseService.users.count();
@@ -99,11 +79,7 @@ export class TelegramService implements OnModuleInit {
     try {
       const userId = BigInt(ctx.from.id);
       await this.databaseService.updateUserLanguage(userId, lang);
-      
       await ctx.answerCbQuery(getTranslation(lang, 'langUpdated'));
-      await ctx.editMessageText(getTranslation(lang, 'welcomeMsg1'), {
-        parse_mode: 'HTML'
-      });
     } catch (error) {
       this.logger.error('Error in handleLanguageSelection:', error);
     }
@@ -131,13 +107,11 @@ export class TelegramService implements OnModuleInit {
         } else {
           await this.bot.telegram.sendMessage(channel.id, postHtml, {
             parse_mode: 'HTML',
-            disableWebPagePreview: false
+            link_preview_options: { is_disabled: false }
           });
         }
-        
-        this.logger.log(`News broadcasted to ${channel.lang} channel`);
       } catch (error) {
-        this.logger.error(`Failed to broadcast to ${channel.lang} channel:`, error);
+        this.logger.error(`Failed to broadcast to ${channel.lang}:`, error);
       }
     }
   }
@@ -146,7 +120,7 @@ export class TelegramService implements OnModuleInit {
     const adminId = this.configService.get('ADMIN_TELEGRAM_ID');
     if (adminId) {
       try {
-        await this.bot.telegram.sendMessage(adminId, `⚠️ <b>ADMIN NOTIFICATION</b>\n\n${message}`, {
+        await this.bot.telegram.sendMessage(adminId, `⚠️ <b>ADMIN</b>\n\n${message}`, {
           parse_mode: 'HTML'
         });
       } catch (e) {
