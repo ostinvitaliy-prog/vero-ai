@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
-import { Update } from 'telegraf';
+import { Update } from 'telegraf/typings/core/types/typegram';
 
 @Controller()
 export class AppController {
@@ -8,7 +8,6 @@ export class AppController {
 
   constructor(private readonly telegramService: TelegramService) {}
 
-  // Webhook endpoint for Telegram (if you use webhooks)
   @Post('telegram/webhook')
   async handleTelegramWebhook(@Body() update: Update) {
     try {
