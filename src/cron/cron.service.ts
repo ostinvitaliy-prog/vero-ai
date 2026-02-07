@@ -40,14 +40,14 @@ export class CronService implements OnApplicationBootstrap {
 
     try {
       this.logger.log('🔍 Starting news scan (for one top news)...');
-      const items = await this.rssService.fetchAllFeeds();
+      const items = await this.rssService.fetchAllNews();
       this.logger.log(`📰 Fetched ${items.length} news items from RSS`);
 
       let redNews: any = null;
       let yellowNews: any = null;
 
       for (const item of items) {
-        const exists = await this.db.prisma.news.findUnique({
+        const exists = await this.db.news.findUnique({
           where: { link: item.link },
         });
         if (exists) continue;
@@ -55,7 +55,7 @@ export class CronService implements OnApplicationBootstrap {
         this.logger.log(`🤖 Analyzing: ${item.title.slice(0, 80)}...`);
         const analysis = await this.aiService.analyzeNewsUnified(item);
 
-        const savedNews = await this.db.prisma.news.create({
+        const savedNews = await this.db.news.create({
           data: {
             title: item.title,
             link: item.link,
@@ -92,10 +92,9 @@ export class CronService implements OnApplicationBootstrap {
         `📤 Posting ${newsToPost.priority} news: ${newsToPost.title.slice(0, 80)}...`,
       );
 
-      await this.telegramService.postNews(newsToPost, 'en');
-      await this.telegramService.postNews(newsToPost, 'ru');
+      await this.telegramService.postNews(newsToPost);
 
-      await this.db.prisma.news.update({
+      await this.db.news.update({
         where: { id: newsToPost.id },
         data: { isPosted: true },
       });
