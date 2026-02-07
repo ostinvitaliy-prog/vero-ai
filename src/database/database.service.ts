@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import { NewsItem } from '../ai/ai.service';
+import  as crypto from 'crypto-js';
 
 @Injectable()
 export class DatabaseService extends PrismaClient implements OnModuleInit {
@@ -23,34 +24,48 @@ export class DatabaseService extends PrismaClient implements OnModuleInit {
   }
 
   async getAllNewsHashes(): Promise<string[]> {
-    const news = await this.news.findMany({
-      select: { link: true },
+    const news = await this.sent_news.findMany({
+      select: { news_hash: true },
     });
-    return news.map((n) => n.link);
+    return news.map((n: any) => n.news_hash);
   }
 
   async saveNews(newsItem: NewsItem): Promise<void> {
-    await this.news.create({
-      data: {
-        title: newsItem.title,
-        link: newsItem.link,
-        content: newsItem.content,
-        pubDate: newsItem.pubDate,
-        source: newsItem.source,
-        imageUrl: newsItem.imageUrl,
-        priority: newsItem.priority,
-        priorityReason: newsItem.priorityReason,
-        postEn: newsItem.postEn,
-        postRu: newsItem.postRu,
-        isPosted: false,
-      },
+    const newsHash = crypto.SHA256(newsItem.link).toString();
+
+    const existing = await this.sent_news.findUnique({
+      where: { news_hash: newsHash }
     });
+
+    if (!existing) {
+      await this.sent_news.create({
+        data: {
+          news_hash: newsHash,
+        },
+      });
+
+      await this.news_priority.upsert({
+        where: { news_hash: newsHash },
+        update: {
+          priority: newsItem.priority || 'GREEN',
+          priority_reason: newsItem.priorityReason || null,
+        },
+        create: {
+          news_hash: newsHash,
+          priority: newsItem.priority || 'GREEN',
+          priority_reason: newsItem.priorityReason || null,
+        },
+      });
+    }
   }
 
   async markAsPosted(link: string): Promise<void> {
-    await this.news.updateMany({
-      where: { link },
-      data: { isPosted: true },
+    const newsHash = crypto.SHA256(link).toString();
+    
+    await this.sent_news.upsert({
+      where: { news_hash: newsHash },
+      update: { sent_at: new Date() },
+      create: { news_hash: newsHash },
     });
   }
 }
