@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import { NewsItem } from '../ai/ai.service';
-import  as crypto from 'crypto-js';
+import * as crypto from 'crypto-js';
 
 @Injectable()
 export class DatabaseService extends PrismaClient implements OnModuleInit {
