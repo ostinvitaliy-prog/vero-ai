@@ -9,30 +9,30 @@ export class RssService {
   private parser = new Parser();
 
   async getNewsForPosting(): Promise<NewsItem[]> {
-    // Your RSS fetching logic here
+    // Implement reading multiple feeds and merging logic
+    // For now return empty array to avoid runtime issues
     return [];
   }
 
   generateNewsHash(newsItem: NewsItem): string {
-    return crypto.SHA256(newsItem.title + newsItem.link).toString();
+    return crypto.SHA256((newsItem.title || '') + (newsItem.link || '')).toString();
   }
 
   extractImageFromItem(item: any): string | undefined {
-    // Your logic to extract image URL from RSS item
-    return item.enclosure?.url || item.image?.url || undefined;
+    // try common places
+    return item.enclosure?.url || item.image?.url || item['media:content']?.url || undefined;
   }
 
   async parseFeed(feedUrl: string): Promise<NewsItem[]> {
     try {
       const feed = await this.parser.parseURL(feedUrl);
-      const newsItems: NewsItem[] = feed.items.map(item => ({
+      return (feed.items || []).map(item => ({
         title: item.title || '',
-        description: item.contentSnippet || '',
+        description: item.contentSnippet || item.content || '',
         link: item.link || '',
         pubDate: item.pubDate || '',
-        imageUrl: this.extractImageFromItem(item),
+        imageUrl: this.extractImageFromItem(item)
       }));
-      return newsItems;
     } catch (error) {
       this.logger.error(`Failed to parse feed ${feedUrl}:`, error);
       return [];
