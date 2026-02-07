@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Markup, Context } from 'telegraf';
-import { Update } from 'telegraf/typings/core/types/typegram';
+import type { Update } from 'telegraf';
 import { DatabaseService } from '../database/database.service';
 import { AiService, NewsItem, Language } from '../ai/ai.service';
 import { RssService } from '../rss/rss.service';
