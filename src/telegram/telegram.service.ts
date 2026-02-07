@@ -21,13 +21,17 @@ export class TelegramService {
     private readonly configService: ConfigService,
     private readonly aiService: AiService,
   ) {
-    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
     this.bot = new Telegraf(token);
-    this.channelEn = this.configService.get<string>('TELEGRAM_CHANNEL_EN');
-    this.channelRu = this.configService.get<string>('TELEGRAM_CHANNEL_RU');
+    this.channelEn = this.configService.get<string>('TELEGRAM_CHANNEL_EN') || '';
+    this.channelRu = this.configService.get<string>('TELEGRAM_CHANNEL_RU') || '';
 
     this.bot.launch();
     this.logger.log('✅ Telegram bot launched');
+  }
+
+  async handleUpdate(update: any) {
+    this.logger.log('Received update:', JSON.stringify(update));
   }
 
   async postNews(news: NewsItem) {
