@@ -30,7 +30,8 @@ export class AiService {
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('ABACUSAI_API_KEY') || '';
     this.baseUrl = 'https://routellm.abacus.ai/v1';
-    this.model = 'google/gemini-2.0-flash-001';
+    // Указываем конкретную модель
+    this.model = 'deepseek-v3'; 
   }
 
   async analyzeNewsUnified(newsItem: NewsItem): Promise<{
@@ -86,20 +87,28 @@ export class AiService {
         }
       );
 
-      const result = JSON.parse(response.data.choices[0].message.content);
+      const rawContent = response.data.choices[0].message.content;
+      const result = typeof rawContent === 'string' ? JSON.parse(rawContent) : rawContent;
+
       return {
         priority: result.priority || 'GREEN',
         priorityReason: result.priorityReason || 'No reason provided',
         postEn: result.postEn,
         postRu: result.postRu,
       };
-    } catch (error) {
-      this.logger.error(`Error in unified analysis:`);
-      this.logger.error(error);
+    } catch (error: any) {
+      this.logger.error(`Error in unified analysis with ${this.model}`);
       if (error.response) {
         this.logger.error(`AI API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
       }
-      throw new Error(`AI API error: ${error.response?.status || 500}`);
+      
+      // Фоллбек на случай ошибки API
+      return {
+        priority: 'GREEN',
+        priorityReason: 'AI Error Fallback',
+        postEn: `<b>${newsItem.title}</b>\n\n${newsItem.content.substring(0, 200)}...`,
+        postRu: `<b>${newsItem.title}</b>\n\n${newsItem.content.substring(0, 200)}...`,
+      };
     }
   }
 
