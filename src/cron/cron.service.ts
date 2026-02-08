@@ -67,17 +67,14 @@ export class CronService implements OnApplicationBootstrap {
         }
 
         this.logger.log(`🤖 Analyzing: ${item.title.slice(0, 80)}...`);
-        const analysis = await this.aiService.analyzeNewsUnified(item);
+        const analyzedItem = await this.aiService.analyzeNewsUnified(item);
 
-        item.priority = analysis.priority;
-        item.priorityReason = analysis.priorityReason;
-
-        await this.db.saveNews(item);
+        await this.db.saveNews(analyzedItem);
 
         candidates.push({
-          item,
-          priority: analysis.priority,
-          priorityReason: analysis.priorityReason,
+          item: analyzedItem,
+          priority: analyzedItem.priority,
+          priorityReason: analyzedItem.priorityReason,
         });
       }
 
@@ -86,7 +83,6 @@ export class CronService implements OnApplicationBootstrap {
         return;
       }
 
-      // ранжируем: RED > YELLOW > GREEN
       const priorityRank: Record<string, number> = {
         RED: 3,
         YELLOW: 2,
@@ -104,7 +100,6 @@ export class CronService implements OnApplicationBootstrap {
         return;
       }
 
-      // ВАЖНО: теперь постим ЛЮБУЮ лучшую, даже если она GREEN
       this.logger.log(
         `📤 Posting ${best.priority} news: ${best.item.title.slice(0, 80)}...`,
       );
