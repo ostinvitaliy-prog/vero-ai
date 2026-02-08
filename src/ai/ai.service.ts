@@ -17,27 +17,33 @@ export interface NewsItem {
 @Injectable()
 export class AiService {
   private readonly apiKey = process.env.ABACUSAI_API_KEY;
-  // Замени на ID твоей модели в Abacus, если он другой
-  private readonly deploymentToken = process.env.ABACUS_DEPLOYMENT_TOKEN; 
 
   async generatePost(newsText: string, lang: 'RU' | 'EN') {
     const prompt = lang === 'RU' 
-      ? `Ты — аналитик Vero AI. Сделай краткий пересказ новости на РУССКОМ. 1. Используй только HTML (<b>, <i>, <a>). 2. Блок "Термины" ЗАПРЕЩЕН. Объясняй в скобках. 3. Заголовок <b>. 4. В конце: "Может привести к:".`
-      : `You are Vero AI analyst. Summarize in ENGLISH. 1. Use HTML. 2. No "Terms" block. 3. Bold title. 4. End with: "May lead to:".`;
+      ? `Ты — аналитик Vero AI. Сделай краткий пересказ новости на РУССКОМ языке. ПРАВИЛА: 1. Используй ТОЛЬКО HTML (<b>, <i>, <a>). 2. Объясняй термины в скобках. 3. Заголовок жирным <b>. 4. В конце пиши: "Может привести к:".`
+      : `You are Vero AI analyst. Summarize news in ENGLISH. 1. Use HTML (<b>, <i>, <a>). 2. Explain terms in brackets. 3. Bold title. 4. End with: "May lead to:".`;
 
     try {
-      // Прямой запрос к API Abacus AI
-      const response = await axios.post('https://api.abacus.ai/api/v0/getChatResponse', {
-        deploymentToken: this.deploymentToken,
-        messages: [{ role: 'user', content: `${prompt}\n\n${newsText}` }]
-      }, {
-        headers: { 'apiKey': this.apiKey }
-      });
+      // Прямой вызов Abacus AI API
+      const response = await axios.post(
+        'https://api.abacus.ai/api/v0/getChatResponse',
+        {
+          messages: [{ role: 'user', content: `${prompt}\n\n${newsText}` }],
+          // Если у тебя в Abacus есть конкретный Deployment ID, его можно вписать тут. 
+          // Если нет, Abacus использует модель по умолчанию для ключа.
+        },
+        {
+          headers: { 
+            'apiKey': this.apiKey,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
       return response.data.result.content;
     } catch (error) {
-      console.error('Abacus AI Error:', error.response?.data || error.message);
-      return 'Ошибка генерации текста';
+      console.error('Abacus AI API Error:', error.response?.data || error.message);
+      return 'Ошибка генерации текста через Abacus AI. Проверьте настройки API.';
     }
   }
 
