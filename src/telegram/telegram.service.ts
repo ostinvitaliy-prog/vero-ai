@@ -8,23 +8,20 @@ export class TelegramService {
   private readonly apiUrl = `https://api.telegram.org/bot${this.botToken}`;
 
   async sendNews(item: NewsItem, lang: 'RU' | 'EN' = 'RU') {
-    if (!this.botToken) {
-      console.error('Telegram: TELEGRAM_BOT_TOKEN не настроен');
-      return;
-    }
+    if (!this.botToken) return console.error('Telegram: TOKEN не настроен');
 
-    // Выбираем ID канала в зависимости от языка
     const chatId = lang === 'RU' 
       ? process.env.TELEGRAM_CHANNEL_RU 
       : process.env.TELEGRAM_CHANNEL_EN;
 
-    if (!chatId) {
-      console.error(`Telegram: Не настроен ID канала для языка ${lang}`);
-      return;
-    }
+    if (!chatId) return console.error(`Telegram: Не настроен ID канала для ${lang}`);
 
     try {
-      if (item.image && item.image.startsWith('http')) {
+      // Лимит Telegram для подписи к фото — 1024 символа
+      const isTooLong = item.text.length > 1024;
+
+      if (item.image && item.image.startsWith('http') && !isTooLong) {
+        // Если текст влезает — шлем фото с подписью
         await axios.post(`${this.apiUrl}/sendPhoto`, {
           chat_id: chatId,
           photo: item.image,
@@ -32,13 +29,17 @@ export class TelegramService {
           parse_mode: 'HTML',
         });
       } else {
+        // Если текста много или нет картинки — шлем картинку (если есть), а потом ТЕКСТ отдельно
+        if (item.image && item.image.startsWith('http')) {
+          await axios.post(`${this.apiUrl}/sendPhoto`, { chat_id: chatId, photo: item.image });
+        }
         await axios.post(`${this.apiUrl}/sendMessage`, {
           chat_id: chatId,
           text: item.text,
           parse_mode: 'HTML',
         });
       }
-      console.log(`Новость успешно отправлена в ${lang} канал`);
+      console.log(`Новость отправлена в ${lang}`);
     } catch (error) {
       console.error(`Ошибка отправки в Telegram (${lang}):`, error.response?.data || error.message);
     }
