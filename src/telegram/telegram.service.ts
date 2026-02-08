@@ -9,10 +9,9 @@ export class TelegramService {
 
   async sendNews(item: NewsItem, lang: 'RU' | 'EN') {
     const chatId = lang === 'RU' ? process.env.TELEGRAM_CHANNEL_RU : process.env.TELEGRAM_CHANNEL_EN;
-    if (!chatId || !this.botToken) return console.error('Config missing');
+    if (!chatId || !this.botToken) return console.error(`Config missing for ${lang}`);
 
     try {
-      // Пытаемся отправить фото с подписью. Если фото не грузится — шлем только текст.
       if (item.image && item.image.startsWith('http')) {
         await axios.post(`${this.apiUrl}/sendPhoto`, {
           chat_id: chatId,
@@ -27,9 +26,9 @@ export class TelegramService {
           parse_mode: 'HTML'
         });
       }
-      console.log(`Success ${lang}`);
+      console.log(`✅ Success: Sent to ${lang} channel`);
     } catch (e) {
-      console.error(`Fail ${lang}:`, e.response?.data || e.message);
+      console.error(`❌ Fail ${lang}:`, e.response?.data || e.message);
     }
   }
 }
