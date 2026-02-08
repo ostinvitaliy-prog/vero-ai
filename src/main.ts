@@ -1,25 +1,16 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { Logger } from '@nestjs/common';
-import { CronService } from './cron/cron.service';
+import { AIService } from './services/ai.service';
+import { TelegramService } from './services/telegram.service';
+import { formatPostText } from './utils/formatter'; // Если файла нет, убери эту строку
 
-async function bootstrap() {
-  const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+const ai = new AIService();
+const tg = new TelegramService();
 
-  app.enableCors();
+async function handleNews(newsItem: any) {
+  // Генерация для RU
+  const ruContent = await ai.generatePost(newsItem.text, 'RU');
+  await tg.sendToChannel(process.env.CHANNEL_ID_RU!, ruContent || '', newsItem.image);
 
-  const port = process.env.PORT || 10000;
-  await app.listen(port);
-  
-  logger.log(`✅ Application is running on: http://localhost:${port}`);
-
-  try {
-    const cronService = app.get(CronService);
-    logger.log('🚀 STARTING INITIAL NEWS SCAN & POST ONE...');
-    await cronService.scanAndPostOne();
-  } catch (e) {
-    logger.error('❌ Failed to start initial scan', e);
-  }
+  // Генерация для EN
+  const enContent = await ai.generatePost(newsItem.text, 'EN');
+  await tg.sendToChannel(process.env.CHANNEL_ID_EN!, enContent || '', newsItem.image);
 }
-bootstrap();
