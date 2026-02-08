@@ -9,14 +9,21 @@ export class AppService {
     private readonly telegramService: TelegramService,
   ) {}
 
-  async processNews(newsItem: any) {
-    const ruContent = await this.aiService.generatePost(newsItem.text, 'RU');
-    if (ruContent) {
-      await this.telegramService.sendToChannel('TELEGRAM_CHANNEL_RU', ruContent, newsItem.image);
-    }
-    const enContent = await this.aiService.generatePost(newsItem.text, 'EN');
-    if (enContent) {
-      await this.telegramService.sendToChannel('TELEGRAM_CHANNEL_EN', enContent, newsItem.image);
-    }
+  async testPost() {
+    const mockNews = {
+      text: "Биткоин показывает стабильность выше $95,000, пока институционалы наращивают позиции в ETF.",
+      title: "Рынок BTC сегодня",
+      link: "https://bits.media",
+      image: "https://bits.media/upload/iblock/789/btc_crypto.jpg"
+    };
+
+    const content = await this.aiService.generatePost(mockNews.text);
+    await this.telegramService.sendNews({
+      ...mockNews,
+      text: content,
+      priority: 'YELLOW'
+    });
+    
+    return { status: 'Success', message: 'Test news sent to Telegram' };
   }
 }
