@@ -13,22 +13,25 @@ export class TelegramService {
 
     try {
       const photo = item.image || (item as any).enclosure?.url;
-      
-      // Ссылка на фото прячется в невидимый символ в начале текста
-      // Это заставляет Telegram отобразить превью картинки сверху поста
-      const hiddenPhoto = photo ? `<a href="${photo}">&#8205;</a>` : '';
-      const fullMessage = hiddenPhoto + item.text;
 
-      await axios.post(`${this.apiUrl}/sendMessage`, {
-        chat_id: chatId,
-        text: fullMessage,
-        parse_mode: 'HTML',
-        disable_web_page_preview: false // Важно: это включает отображение картинки
-      });
-
-      console.log(`✅ ${lang} posted as single message with photo`);
+      if (photo && photo.startsWith('http')) {
+        // Отправляем как Photo — картинка будет СВЕРХУ, текст под ней
+        await axios.post(`${this.apiUrl}/sendPhoto`, {
+          chat_id: chatId,
+          photo: photo,
+          caption: item.text,
+          parse_mode: 'HTML'
+        });
+      } else {
+        await axios.post(`${this.apiUrl}/sendMessage`, {
+          chat_id: chatId,
+          text: item.text,
+          parse_mode: 'HTML'
+        });
+      }
+      console.log(`✅ ${lang} posted: Photo on top, text below.`);
     } catch (e) {
-      console.error(`Ошибка Telegram (${lang}):`, e.response?.data || e.message);
+      console.error(`❌ Telegram Error (${lang}):`, e.response?.data || e.message);
     }
   }
 }
