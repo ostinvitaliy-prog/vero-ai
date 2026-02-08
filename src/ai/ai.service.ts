@@ -6,7 +6,7 @@ export interface NewsItem {
   link: string;
   title: string;
   image?: string;
-  priority: 'RED' | 'YELLOW' | 'GREEN';
+  priority?: 'RED' | 'YELLOW' | 'GREEN';
   priorityReason?: string;
 }
 
@@ -15,7 +15,7 @@ export class AiService {
   private readonly apiKey = process.env.GROQ_API_KEY;
   private readonly apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
-  async generatePost(item: any, lang: 'RU' | 'EN') {
+  async generatePost(item: any, lang: 'RU' | 'EN'): Promise<string> {
     if (!this.apiKey) return 'API Key Missing';
 
     const prompt = lang === 'RU'
@@ -31,7 +31,7 @@ export class AiService {
          • (Пункт 1)
          • (Пункт 2)
          
-         🔗 <b>Источник:</b> <a href="${item.link}">Читать оригинал</a>
+         🔗 <b>Источник:</b> <a href="${item.link || '#'}">Читать оригинал</a>
          
          #BTC #Crypto #Web3 #Blockchain`
       : `Analyze and format news in ENGLISH.
@@ -46,7 +46,7 @@ export class AiService {
          • (Point 1)
          • (Point 2)
          
-         🔗 <b>Source:</b> <a href="${item.link}">Read original</a>
+         🔗 <b>Source:</b> <a href="${item.link || '#'}">Read original</a>
          
          #BTC #Crypto #Web3 #Blockchain`;
 
@@ -62,12 +62,17 @@ export class AiService {
 
       return response.data.choices[0].message.content.replace(/\*\*/g, ''); 
     } catch (error) {
-      return `Error: ${error.message}`;
+      return `Error generating text: ${error.message}`;
     }
   }
 
   async analyzeNewsUnified(item: any): Promise<NewsItem> {
     const text = await this.generatePost(item, 'RU');
-    return { title: item.title, link: item.link, text, priority: 'YELLOW' };
+    return { 
+      title: item.title || 'No title', 
+      link: item.link || '', 
+      text: text, 
+      priority: 'YELLOW' 
+    };
   }
 }
