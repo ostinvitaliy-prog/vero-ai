@@ -5,53 +5,42 @@ import { NewsItem } from '../ai/ai.service';
 @Injectable()
 export class TelegramService {
   private readonly botToken = process.env.TELEGRAM_BOT_TOKEN;
-  private readonly chatId = process.env.TELEGRAM_CHAT_ID;
   private readonly apiUrl = `https://api.telegram.org/bot${this.botToken}`;
 
-  async sendNews(item: NewsItem) {
-    if (!this.botToken || !this.chatId) {
-      console.error('Telegram: Не настроены TOKEN или CHAT_ID');
+  async sendNews(item: NewsItem, lang: 'RU' | 'EN' = 'RU') {
+    if (!this.botToken) {
+      console.error('Telegram: TELEGRAM_BOT_TOKEN не настроен');
       return;
     }
 
-    // Текст уже отформатирован в AiService (HTML)
-    const caption = item.text;
+    // Выбираем ID канала в зависимости от языка
+    const chatId = lang === 'RU' 
+      ? process.env.TELEGRAM_CHANNEL_RU 
+      : process.env.TELEGRAM_CHANNEL_EN;
+
+    if (!chatId) {
+      console.error(`Telegram: Не настроен ID канала для языка ${lang}`);
+      return;
+    }
 
     try {
       if (item.image && item.image.startsWith('http')) {
-        // Если есть картинка, используем sendPhoto
         await axios.post(`${this.apiUrl}/sendPhoto`, {
-          chat_id: this.chatId,
+          chat_id: chatId,
           photo: item.image,
-          caption: caption,
+          caption: item.text,
           parse_mode: 'HTML',
         });
-        console.log('Новость отправлена с фото');
       } else {
-        // Если картинки нет, шлем обычное сообщение
         await axios.post(`${this.apiUrl}/sendMessage`, {
-          chat_id: this.chatId,
-          text: caption,
+          chat_id: chatId,
+          text: item.text,
           parse_mode: 'HTML',
-          disable_web_page_preview: false,
         });
-        console.log('Новость отправлена без фото (текст)');
       }
+      console.log(`Новость успешно отправлена в ${lang} канал`);
     } catch (error) {
-      console.error('Ошибка отправки в Telegram:', error.response?.data || error.message);
-      
-      // Резервный вариант: если фото не прошло (например, битая ссылка), пробуем отправить хотя бы текст
-      if (item.image) {
-        try {
-          await axios.post(`${this.apiUrl}/sendMessage`, {
-            chat_id: this.chatId,
-            text: caption,
-            parse_mode: 'HTML',
-          });
-        } catch (retryError) {
-          console.error('Полный провал отправки:', retryError.message);
-        }
-      }
+      console.error(`Ошибка отправки в Telegram (${lang}):`, error.response?.data || error.message);
     }
   }
 }
