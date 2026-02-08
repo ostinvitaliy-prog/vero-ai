@@ -66,6 +66,6 @@ export class TelegramService {
   }
 
   private getRandomFallback(): string {
-    return this.fallbackImages[Math.floor(Math.random()  this.fallbackImages.length)];
+    return this.fallbackImages[Math.floor(Math.random() * this.fallbackImages.length)];
   }
 }
