@@ -19,14 +19,13 @@ export class AiService {
     if (!this.apiKey) return 'API Key Missing';
 
     const prompt = lang === 'RU'
-      ? `ПЕРЕВЕДИ И ОФОРМИ новость на РУССКИЙ язык.
-         ШАБЛОН:
+      ? `ПЕРЕВЕДИ на РУССКИЙ и оформи:
          🟢 <b>ЗАГОЛОВОК КАПСОМ</b> 🚀
          
-         (Подробный текст новости на РУССКОМ, 4-5 предложений)
+         (Детальный разбор, 4-5 предложений)
          
          💡 <b>VERO AI SUMMARY:</b>
-         (Твой экспертный вывод на русском)
+         (Экспертный вывод)
          
          ⚠️ <b>МОЖЕТ ПРИВЕСТИ К:</b>
          • (Пункт 1)
@@ -35,11 +34,10 @@ export class AiService {
          🔗 <b>Источник:</b> <a href="${item.link}">Читать оригинал</a>
          
          #BTC #Crypto #Web3 #Blockchain`
-      : `ANALYZE AND FORMAT this news in ENGLISH.
-         TEMPLATE:
+      : `ANALYZE in ENGLISH and format:
          🟢 <b>HEADER IN CAPS</b> 🚀
          
-         (Detailed news text in ENGLISH, 4-5 sentences)
+         (Detailed analysis, 4-5 sentences)
          
          💡 <b>VERO AI SUMMARY:</b>
          (Analytical takeaway)
@@ -56,8 +54,8 @@ export class AiService {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: `Senior Crypto Analyst. Target language: ${lang}. Use HTML.` },
-          { role: "user", content: `SOURCE NEWS (EN):\nTitle: ${item.title}\nContent: ${item.content || item.text}\n\nINSTRUCTION:\n${prompt}` }
+          { role: "system", content: `Crypto Analyst. Language: ${lang}. HTML only.` },
+          { role: "user", content: `NEWS:\n${item.title}\n${item.content || item.text}\n\nTASK:\n${prompt}` }
         ],
         temperature: 0.2
       }, { headers: { 'Authorization': `Bearer ${this.apiKey}` } });
@@ -68,7 +66,6 @@ export class AiService {
     }
   }
 
-  // Метод заглушка для совместимости
   async analyzeNewsUnified(item: any): Promise<NewsItem> {
     const text = await this.generatePost(item, 'RU');
     return { ...item, text, priority: 'YELLOW' };
