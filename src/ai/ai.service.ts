@@ -19,10 +19,10 @@ export class AiService {
     if (!this.apiKey) return 'API Key Missing';
 
     const prompt = lang === 'RU'
-      ? `ПЕРЕВЕДИ на РУССКИЙ и оформи:
+      ? `Оформи аналитическую новость на РУССКОМ.
          🟢 <b>ЗАГОЛОВОК КАПСОМ</b> 🚀
          
-         (Детальный разбор, 4-5 предложений)
+         (Подробный текст, 4-5 предложений с фактами)
          
          💡 <b>VERO AI SUMMARY:</b>
          (Экспертный вывод)
@@ -34,10 +34,10 @@ export class AiService {
          🔗 <b>Источник:</b> <a href="${item.link}">Читать оригинал</a>
          
          #BTC #Crypto #Web3 #Blockchain`
-      : `ANALYZE in ENGLISH and format:
+      : `Analyze and format news in ENGLISH.
          🟢 <b>HEADER IN CAPS</b> 🚀
          
-         (Detailed analysis, 4-5 sentences)
+         (Detailed news text, 4-5 sentences)
          
          💡 <b>VERO AI SUMMARY:</b>
          (Analytical takeaway)
@@ -54,8 +54,8 @@ export class AiService {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: `Crypto Analyst. Language: ${lang}. HTML only.` },
-          { role: "user", content: `NEWS:\n${item.title}\n${item.content || item.text}\n\nTASK:\n${prompt}` }
+          { role: "system", content: "Senior Crypto Analyst. HTML only. Crypto hashtags only." },
+          { role: "user", content: `DATA:\n${item.title}\n${item.content || item.text}\n\nTASK:\n${prompt}` }
         ],
         temperature: 0.2
       }, { headers: { 'Authorization': `Bearer ${this.apiKey}` } });
@@ -68,6 +68,6 @@ export class AiService {
 
   async analyzeNewsUnified(item: any): Promise<NewsItem> {
     const text = await this.generatePost(item, 'RU');
-    return { ...item, text, priority: 'YELLOW' };
+    return { title: item.title, link: item.link, text, priority: 'YELLOW' };
   }
 }
