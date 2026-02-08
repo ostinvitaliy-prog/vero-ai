@@ -50,12 +50,13 @@ export class AiService {
         response_format: { type: 'json_object' },
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
+      const content = response.choices[0].message.content || '{}';
+      const result = JSON.parse(content);
 
-      item.priority = result.priority;
-      item.priorityReason = result.priorityReason;
-      item.postEn = result.postEn;
-      item.postRu = result.postRu;
+      item.priority = result.priority || 'GREEN';
+      item.priorityReason = result.priorityReason || '';
+      item.postEn = result.postEn || item.title;
+      item.postRu = result.postRu || item.title;
 
       return item;
 
