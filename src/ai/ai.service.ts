@@ -1,44 +1,35 @@
-import { Injectable } from '@nestjs/common';
-import axios from 'axios';
-
-export interface NewsItem {
-  text: string; link: string; title: string; image?: string;
-  url?: string; priority: 'RED' | 'YELLOW' | 'GREEN';
-  priorityReason?: string; source?: string; content?: string; pubDate?: string;
-}
-
-@Injectable()
-export class AiService {
-  private readonly apiKey = process.env.GROQ_API_KEY;
-  private readonly apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-
-  async generatePost(newsText: string, lang: 'RU' | 'EN') {
+async generatePost(newsText: string, lang: 'RU' | 'EN') {
     if (!this.apiKey) return 'Ошибка: GROQ_API_KEY не найден';
 
     const prompt = lang === 'RU' 
-      ? `Ты — аналитик Vero AI. Сделай краткий пересказ новости на РУССКОМ. ПРАВИЛА: 1. Только HTML (<b>, <i>, <a>). 2. Без блока "Термины". 3. Заголовок <b>. 4. В конце: "Может привести к:".`
-      : `Analyze as Vero AI. English. HTML only. Bold title. End with: "May lead to:".`;
+      ? `Ты — ведущий аналитик Vero AI. Сделай сочный и структурированный пост.
+         ПРАВИЛА:
+         1. ПЕРВАЯ СТРОКА: Эмодзи (🟡, 🟢 или 🔴 по смыслу) + заголовок жирным <b>ВЕРХНИМ РЕГИСТРОМ</b> + эмодзи ракеты или огня.
+         2. СРАЗУ ПОСЛЕ: Информативный текст новости без лишних вступлений. Выделяй важные цифры, суммы и названия жирным <b>.
+         3. РАЗДЕЛИТЕЛЬ: ---
+         4. БЛОК "💡 VERO AI SUMMARY": Твое авторское пояснение простым языком о влиянии на рынок.
+         5. БЛОК "⚠️ МОЖЕТ ПРИВЕСТИ К": Список из 3 пунктов с эмодзи.
+         6. РАЗДЕЛИТЕЛЬ: ---
+         7. ИНТЕРАКТИВ: Вопрос к аудитории и призыв писать в комментарии (💬 ... 👇).
+         8. ССЫЛКА: 🔗 Источник: <a href="...">Название</a>.
+         
+         ВАЖНО: Используй много эмодзи. Используй ТОЛЬКО HTML (<b>, <a>). Никакого Markdown.`
+      : `Analyze as Vero AI. No "What is it about?" phrases. First line: Emoji + BOLD CAPS title. Add VERO AI SUMMARY, points, and "What do you think?" call to action. HTML only.`;
 
     try {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: `${prompt}\n\n${newsText}` }],
-        temperature: 0.5
+        messages: [
+          { role: "system", content: "You output clean HTML with many emojis. No markdown stars." },
+          { role: "user", content: `${prompt}\n\nТекст новости:\n${newsText}` }
+        ],
+        temperature: 0.65
       }, {
-        headers: { 
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json' 
-        }
+        headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' }
       });
 
-      return response.data.choices[0].message.content;
+      return response.data.choices[0].message.content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
     } catch (error) {
-      return `Ошибка Groq: ${error.response?.data?.error?.message || error.message}`;
+      return `Ошибка Groq: ${error.message}`;
     }
   }
-
-  async analyzeNewsUnified(item: any): Promise<NewsItem> {
-    const summary = await this.generatePost(item.content || item.text || '', 'RU');
-    return { ...item, text: summary, link: item.link || item.url || '', title: item.title || '', priority: 'GREEN' };
-  }
-}
