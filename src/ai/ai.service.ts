@@ -17,38 +17,40 @@ export interface NewsItem {
 @Injectable()
 export class AiService {
   private readonly apiKey = process.env.GEMINI_API_KEY;
-  // Используем актуальную версию модели
-  private readonly apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`;
+  // Используем стабильную версию API v1
+  private readonly apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`;
 
   async generatePost(newsText: string, lang: 'RU' | 'EN') {
-    if (!this.apiKey) return 'Ошибка: GEMINI_API_KEY не найден в настройках';
+    if (!this.apiKey) return 'Ошибка: Ключ GEMINI_API_KEY не найден';
 
     const prompt = lang === 'RU' 
-      ? `Ты — аналитик Vero AI. Сделай краткий пересказ новости на РУССКОМ языке.
-         ПРАВИЛА:
-         1. Используй ТОЛЬКО HTML (<b>, <i>, <a>). Никаких звездочек.
-         2. Не делай блок "Термины".
-         3. Заголовок жирным <b>.
-         4. В конце только фраза: "Может привести к:".`
-      : `You are a Vero AI analyst. Summarize news in ENGLISH.
-         RULES: 1. Use ONLY HTML. 2. No terms block. 3. Bold title. 4. End with: "May lead to:".`;
+      ? `Ты — аналитик Vero AI. Сделай краткий пересказ новости на РУССКОМ. ПРАВИЛА: 1. Только HTML (<b>, <i>, <a>). 2. Без блока "Термины". 3. Заголовок <b>. 4. В конце: "Может привести к:".`
+      : `Analyze as Vero AI. English. HTML only. No terms block. Bold title. End with: "May lead to:".`;
 
     try {
       const response = await axios.post(this.apiUrl, {
         contents: [{
-          parts: [{ text: `${prompt}\n\nТекст новости:\n${newsText}` }]
-        }]
+          role: "user",
+          parts: [{ text: `${prompt}\n\n${newsText}` }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        }
       }, {
         headers: { 'Content-Type': 'application/json' }
       });
 
-      // Безопасное извлечение текста
       const result = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      return result || 'Не удалось получить текст от ИИ';
+      return result || 'ИИ вернул пустой ответ';
       
     } catch (error) {
-      console.error('Gemini Error:', error.response?.data || error.message);
-      return `Ошибка API: ${error.response?.status || 'unknown'}`;
+      // Выводим детальную ошибку в логи Render
+      const errorData = error.response?.data?.[0]?.error || error.response?.data?.error;
+      console.error('Gemini Detail:', JSON.stringify(errorData));
+      return `Ошибка API: ${error.response?.status || 'unknown'} - ${errorData?.message || 'Check Logs'}`;
     }
   }
 
