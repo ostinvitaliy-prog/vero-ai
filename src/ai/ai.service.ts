@@ -20,55 +20,50 @@ export class AiService {
   private readonly apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
   async generatePost(newsText: string, lang: 'RU' | 'EN') {
-    if (!this.apiKey) return 'Ошибка: GROQ_API_KEY не найден в Render';
+    if (!this.apiKey) return 'Ошибка: GROQ_API_KEY не найден';
 
     const prompt = lang === 'RU' 
-      ? `Ты — ведущий аналитик Vero AI. Сделай сочный и структурированный пост.
+      ? `Ты — строгий крипто-аналитик. Твоя задача: оформить новость.
          ПРАВИЛА:
-         1. ПЕРВАЯ СТРОКА: Эмодзи (🟡, 🟢 или 🔴 по смыслу новости) + заголовок жирным <b>ВЕРХНИМ РЕГИСТРОМ</b> + эмодзи ракеты или огня.
-         2. СРАЗУ ПОСЛЕ: Информативный текст новости без лишних вступлений (не пиши "О чем новость"). Выделяй важные цифры и названия жирным <b>.
-         3. РАЗДЕЛИТЕЛЬ: ---
-         4. БЛОК "💡 VERO AI SUMMARY": Твое авторское пояснение простым языком о влиянии на рынок.
-         5. БЛОК "⚠️ МОЖЕТ ПРИВЕСТИ К": Список из 3 конкретных пунктов с эмодзи в начале.
-         6. РАЗДЕЛИТЕЛЬ: ---
-         7. ИНТЕРАКТИВ: Короткий вопрос к аудитории и призыв писать в комментарии (💬 ... 👇).
-         8. ССЫЛКА: 🔗 Источник: <a href="...">Название</a>.
+         1. ЗАГОЛОВОК: Начни с эмодзи (🔴, 🟡 или 🟢 по смыслу) и напиши заголовок ЖИРНЫМ КАПСОМ.
+         2. СУТЬ: В 2-3 абзацах распиши детали. Используй ТОЛЬКО факты из присланного текста. НЕ ВЫДУМЫВАЙ ЦЕНЫ!
+         3. ОТСТУП: Между блоками делай двойной перенос строки.
+         4. VERO AI SUMMARY: Напиши простым языком, что это значит для рынка.
+         5. ПРОГНОЗ: Список "Может привести к:" из 2-3 пунктов.
+         6. ИНТЕРАКТИВ: "А что думаете вы? Пишите в комментариях! 👇"
          
-         ВАЖНО: Используй много эмодзи. Используй ТОЛЬКО HTML (<b>, <a>). Никакого Markdown (**).`
-      : `Analyze as Vero AI. No intros. First line: Emoji + BOLD CAPS title. Add VERO AI SUMMARY, 3 points, and interactive "What do you think?" call to action. HTML only. Plenty of emojis.`;
+         ФОРМАТ: Используй ТОЛЬКО HTML (<b>, <a>). Никаких звездочек. Каждый блок отделяй пустой строкой.`
+      : `Strict analyst. HTML only. Bold caps title with emoji. No fake data. Double line breaks between blocks.`;
 
     try {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: "You output clean HTML with many emojis. No markdown stars." },
-          { role: "user", content: `${prompt}\n\nТекст новости:\n${newsText}` }
+          { role: "system", content: "You are a professional news editor. You use <b> and <a> tags. You never invent facts." },
+          { role: "user", content: `ТЕКСТ НОВОСТИ ДЛЯ АНАЛИЗА:\n${newsText}\n\nИНСТРУКЦИЯ:\n${prompt}` }
         ],
-        temperature: 0.65
+        temperature: 0.3 // Снижаем температуру, чтобы ИИ меньше фантазировал
       }, {
-        headers: { 
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json' 
-        }
+        headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' }
       });
 
-      let result = response.data.choices[0].message.content;
-      // Дополнительная зачистка на случай, если модель выдаст **
-      result = result.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-      return result;
+      return response.data.choices[0].message.content;
     } catch (error) {
-      console.error('Groq Error:', error.response?.data || error.message);
-      return `Ошибка генерации (Groq): ${error.message}`;
+      return `Ошибка генерации: ${error.message}`;
     }
   }
 
   async analyzeNewsUnified(item: any): Promise<NewsItem> {
-    const summary = await this.generatePost(item.content || item.text || '', 'RU');
+    // Сохраняем картинку, если она есть в исходнике
+    const imageUrl = item.image || item.enclosure?.url || '';
+    const summary = await this.generatePost(item.content || item.text || item.title || '', 'RU');
+    
     return { 
       ...item, 
       text: summary, 
       link: item.link || item.url || '', 
-      title: item.title || '', 
+      title: item.title || '',
+      image: imageUrl, // Возвращаем картинку в объект
       priority: 'YELLOW' 
     };
   }
