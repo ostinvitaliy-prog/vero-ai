@@ -16,19 +16,25 @@ export class CronService {
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async handleCron() {
-    const news = await this.rssService.fetchNews();
+    // В твоем RssService метод называется getNews, а не fetchNews
+    const news = await this.rssService.getNews(); 
+    
     for (const item of news) {
-      const exists = await this.databaseService.newsExists(item.link);
+      // Проверяем существование новости напрямую через prisma в DatabaseService
+      const exists = await this.databaseService.news.findUnique({
+        where: { link: item.link }
+      });
+
       if (!exists) {
-        // 1. Генерируем и отправляем RU
+        // 1. Пост для RU канала
         const ruText = await this.aiService.generatePost(item, 'RU');
         await this.telegramService.sendNews({ ...item, text: ruText, priority: 'YELLOW' }, 'RU');
 
-        // 2. Генерируем и отправляем EN
+        // 2. Пост для EN канала
         const enText = await this.aiService.generatePost(item, 'EN');
         await this.telegramService.sendNews({ ...item, text: enText, priority: 'YELLOW' }, 'EN');
 
-        // 3. Сохраняем в базу (как RU вариант)
+        // 3. Сохранение
         await this.databaseService.saveNews({ ...item, text: ruText, priority: 'YELLOW' });
       }
     }
