@@ -1,116 +1,67 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import OpenAI from 'openai';
 
 export interface NewsItem {
-  id?: number;
   title: string;
   link: string;
   content: string;
-  pubDate: Date;
+  pubDate: string;
   source: string;
   imageUrl?: string;
-  priority?: string;
+  priority?: 'RED' | 'YELLOW' | 'GREEN';
   priorityReason?: string;
   postEn?: string;
   postRu?: string;
-  isPosted?: boolean;
-  createdAt?: Date;
 }
-
-export type Language = 'en' | 'ru';
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly apiKey: string;
-  private readonly baseUrl: string;
+  private openai: OpenAI;
 
   constructor(private configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('ABACUSAI_API_KEY') || '';
-    this.baseUrl = 'https://routellm.abacus.ai/v1';
+    this.openai = new OpenAI({
+      apiKey: this.configService.get<string>('OPENAI_API_KEY'),
+      baseURL: 'https://routellm.abacus.ai/v1', // Твой RouteLLM
+    });
   }
 
-  async analyzeNewsUnified(newsItem: NewsItem): Promise<{
-    priority: 'RED' | 'YELLOW' | 'GREEN';
-    priorityReason: string;
-    postEn: string;
-    postRu: string;
-  }> {
+  async analyzeNewsUnified(item: NewsItem): Promise<any> {
     try {
       const prompt = `
-        Analyze this crypto news:
-        Title: ${newsItem.title}
-        Content: ${newsItem.content}
-
-        1. Determine priority:
-           - RED: Critical market-moving news, major hacks, or massive regulatory shifts.
-           - YELLOW: Important updates, price movements, or significant project news.
-           - GREEN: General news, minor updates, or routine reports.
-
-        2. Provide a brief reason for the priority.
-        3. Create a short Telegram post in English.
-        4. Create a short Telegram post in Russian.
-
+        Analyze this crypto news and return JSON ONLY.
         Format:
-        - Use HTML tags (<b>, <i>, <a>).
-        - Include a catchy headline.
-        - 2-3 bullet points for key facts.
-        - A brief "VERO Analysis" conclusion.
-        - No hashtags.
-
-        Return ONLY a JSON object:
         {
-          "priority": "RED/YELLOW/GREEN",
-          "priorityReason": "Brief explanation",
-          "postEn": "HTML_CONTENT",
-          "postRu": "HTML_CONTENT"
+          "priority": "RED" | "YELLOW" | "GREEN",
+          "priorityReason": "short reason",
+          "postEn": "English telegram post text with emojis",
+          "postRu": "Russian telegram post text with emojis"
         }
+
+        News Title: ${item.title}
+        Content: ${item.content}
       `;
 
-      const response = await axios.post(
-        `${this.baseUrl}/chat/completions`,
-        {
-          // МЫ НЕ УКАЗЫВАЕМ МОДЕЛЬ - RouteLLM выберет сам
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
-          temperature: 0.7,
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini', // или твой рабочий конфиг
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+      });
 
-      const rawContent = response.data.choices[0].message.content;
-      const result = typeof rawContent === 'string' ? JSON.parse(rawContent) : rawContent;
-
-      return {
-        priority: result.priority || 'GREEN',
-        priorityReason: result.priorityReason || 'No reason provided',
-        postEn: result.postEn,
-        postRu: result.postRu,
-      };
-    } catch (error: any) {
-      this.logger.error(`Error in unified analysis`);
-      if (error.response) {
-        this.logger.error(`AI API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-      }
+      const result = JSON.parse(response.choices[0].message.content);
       
+      // Логируем для проверки, что пришло не undefined
+      this.logger.log(`AI Result for ${item.title.slice(0,30)}: ${result.priority}`);
+      
+      return result;
+    } catch (e) {
+      this.logger.error('AI Analysis failed', e);
       return {
         priority: 'GREEN',
-        priorityReason: 'AI Error Fallback',
-        postEn: `<b>${newsItem.title}</b>\n\n${newsItem.content.substring(0, 200)}...`,
-        postRu: `<b>${newsItem.title}</b>\n\n${newsItem.content.substring(0, 200)}...`,
+        postEn: item.title,
+        postRu: item.title
       };
     }
-  }
-
-  formatTelegramPost(news: NewsItem, lang: Language): string {
-    const content = lang === 'en' ? news.postEn : news.postRu;
-    const emoji = news.priority === 'RED' ? '🔴' : news.priority === 'YELLOW' ? '🟡' : '🟢';
-    return `${emoji} ${content}\n\n<a href="${news.link}">Source</a>`;
   }
 }
