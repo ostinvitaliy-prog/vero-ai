@@ -19,7 +19,7 @@ export class CronService {
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async handleCron() {
-    this.logger.log('🔄 Синхронизация новостей...');
+    this.logger.log('🔄 Синхронизация...');
     const news = await this.rssService.getLatestNews();
     
     for (const item of news.slice(0, 3)) {
@@ -37,18 +37,12 @@ export class CronService {
           const enContent = await this.aiService.generatePost(item, 'EN');
 
           const ruNews: NewsItem = {
-            title: item.title || 'No Title',
-            link: link,
-            text: ruContent,
-            priority: 'YELLOW',
+            title: item.title || '', link: link, text: ruContent, priority: 'YELLOW',
             image: item.enclosure?.url || ''
           };
 
           const enNews: NewsItem = {
-            title: item.title || 'No Title',
-            link: link,
-            text: enContent,
-            priority: 'YELLOW',
+            title: item.title || '', link: link, text: enContent, priority: 'YELLOW',
             image: item.enclosure?.url || ''
           };
 
@@ -56,7 +50,7 @@ export class CronService {
           await this.telegramService.sendNews(enNews, 'EN');
           await this.databaseService.saveNews(ruNews);
           
-          this.logger.log(`✅ Опубликовано: ${item.title}`);
+          this.logger.log(`✅ Пост опубликован: ${item.title}`);
         } catch (error) {
           this.logger.error(`Ошибка: ${error.message}`);
         }
