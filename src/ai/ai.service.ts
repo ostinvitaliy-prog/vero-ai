@@ -19,14 +19,14 @@ export class AiService {
     if (!this.apiKey) return 'API Key Missing';
 
     const prompt = lang === 'RU'
-      ? `Напиши серьезный аналитический пост. 
+      ? `ПЕРЕВЕДИ И ОФОРМИ новость на РУССКИЙ язык.
          ШАБЛОН:
          🟢 <b>ЗАГОЛОВОК КАПСОМ</b> 🚀
          
-         (Подробное описание новости, 4-5 предложений)
+         (Подробный текст новости на РУССКОМ, 4-5 предложений)
          
          💡 <b>VERO AI SUMMARY:</b>
-         (Экспертный вывод)
+         (Твой экспертный вывод на русском)
          
          ⚠️ <b>МОЖЕТ ПРИВЕСТИ К:</b>
          • (Пункт 1)
@@ -35,11 +35,11 @@ export class AiService {
          🔗 <b>Источник:</b> <a href="${item.link}">Читать оригинал</a>
          
          #BTC #Crypto #Web3 #Blockchain`
-      : `Write a professional analytical post.
+      : `ANALYZE AND FORMAT this news in ENGLISH.
          TEMPLATE:
          🟢 <b>HEADER IN CAPS</b> 🚀
          
-         (Detailed news description, 4-5 sentences)
+         (Detailed news text in ENGLISH, 4-5 sentences)
          
          💡 <b>VERO AI SUMMARY:</b>
          (Analytical takeaway)
@@ -56,10 +56,10 @@ export class AiService {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: "Senior Crypto Analyst. Detailed posts only. No general hashtags. HTML only." },
-          { role: "user", content: `DATA:\n${item.title}\n${item.text || item.content}\n\nINSTRUCTION:\n${prompt}` }
+          { role: "system", content: `Senior Crypto Analyst. Target language: ${lang}. Use HTML.` },
+          { role: "user", content: `SOURCE NEWS (EN):\nTitle: ${item.title}\nContent: ${item.content || item.text}\n\nINSTRUCTION:\n${prompt}` }
         ],
-        temperature: 0.3
+        temperature: 0.2
       }, { headers: { 'Authorization': `Bearer ${this.apiKey}` } });
 
       return response.data.choices[0].message.content.replace(/\*\*/g, ''); 
@@ -68,9 +68,9 @@ export class AiService {
     }
   }
 
+  // Метод заглушка для совместимости
   async analyzeNewsUnified(item: any): Promise<NewsItem> {
-    const imageUrl = item.image || item.enclosure?.url || '';
-    const ruText = await this.generatePost(item, 'RU');
-    return { title: item.title, link: item.link, text: ruText, image: imageUrl, priority: 'YELLOW', priorityReason: 'Analysis' };
+    const text = await this.generatePost(item, 'RU');
+    return { ...item, text, priority: 'YELLOW' };
   }
 }
