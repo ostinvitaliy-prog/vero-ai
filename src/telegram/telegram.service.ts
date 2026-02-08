@@ -12,18 +12,23 @@ export class TelegramService {
     if (!chatId || !this.botToken) return;
 
     try {
-      const payload = {
-        chat_id: chatId,
-        parse_mode: 'HTML',
-      };
-
-      if (item.image && item.image.startsWith('http')) {
-        await axios.post(`${this.apiUrl}/sendPhoto`, { ...payload, photo: item.image, caption: item.text });
+      const photo = item.image || (item as any).enclosure?.url;
+      if (photo && photo.startsWith('http')) {
+        await axios.post(`${this.apiUrl}/sendPhoto`, {
+          chat_id: chatId,
+          photo: photo,
+          caption: item.text,
+          parse_mode: 'HTML'
+        });
       } else {
-        await axios.post(`${this.apiUrl}/sendMessage`, { ...payload, text: item.text });
+        await axios.post(`${this.apiUrl}/sendMessage`, {
+          chat_id: chatId,
+          text: item.text,
+          parse_mode: 'HTML'
+        });
       }
     } catch (e) {
-      console.error(`Telegram Error (${lang}):`, e.response?.data || e.message);
+      console.error(`Ошибка Telegram (${lang}):`, e.response?.data || e.message);
     }
   }
 }
