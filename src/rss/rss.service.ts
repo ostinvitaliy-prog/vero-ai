@@ -1,42 +1,32 @@
 import { Injectable } from '@nestjs/common';
-import Parser = require('rss-parser');
-import { NewsItem } from '../ai/ai.service';
+import Parser from 'rss-parser';
 
 @Injectable()
 export class RssService {
   private parser = new Parser();
 
-  // Этот метод вызывает твой cron.service
-  async fetchAllNews(): Promise<NewsItem[]> {
-    // Список твоих RSS фидов. Если у тебя есть список в конфиге, можно брать оттуда
+  // Мы даем методу именно то имя, которое ищет CronService
+  async getLatestNews() {
+    // Список твоих источников
     const feeds = [
-      'https://bits.media/rss/', 
+      'https://bits.media/rss2/',
       'https://forklog.com/feed/'
-    ]; 
-    
-    let allItems: NewsItem[] = [];
-    for (const url of feeds) {
-      try {
-        const items = await this.fetchFeed(url);
-        allItems = [...allItems, ...items];
-      } catch (e) {
-        console.error(`Error fetching feed ${url}`);
-      }
-    }
-    return allItems;
-  }
+    ];
 
-  async fetchFeed(url: string): Promise<NewsItem[]> {
-    const feed = await this.parser.parseURL(url);
-    return feed.items.map((item: any) => ({
-      title: item.title || '',
-      link: item.link || '',
-      text: item.contentSnippet || item.content || '',
-      content: item.content || '',
-      pubDate: item.pubDate || '',
-      source: url,
-      image: item.enclosure?.url || undefined,
-      priority: 'GREEN' as const // Указываем как константу для TS
-    }));
+    try {
+      const allNews = [];
+      for (const url of feeds) {
+        const feed = await this.parser.parseURL(url);
+        allNews.push(...feed.items);
+      }
+      
+      // Сортируем по дате, чтобы в начале были самые свежие
+      return allNews.sort((a, b) => 
+        new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+      );
+    } catch (error) {
+      console.error('RSS Parsing Error:', error);
+      return [];
+    }
   }
 }
