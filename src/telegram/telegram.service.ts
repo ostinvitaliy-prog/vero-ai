@@ -1,43 +1,57 @@
 import { Injectable } from '@nestjs/common';
-import { Telegraf } from 'telegraf';
+import axios from 'axios';
+import { NewsItem } from '../ai/ai.service';
 
 @Injectable()
 export class TelegramService {
-  private bot: Telegraf;
+  private readonly botToken = process.env.TELEGRAM_BOT_TOKEN;
+  private readonly chatId = process.env.TELEGRAM_CHAT_ID;
+  private readonly apiUrl = `https://api.telegram.org/bot${this.botToken}`;
 
-  constructor() {
-    this.bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
-  }
-
-  // Метод для Cron-задач
-  async postNews(newsItem: any) {
-    // Эта логика будет вызываться автоматически по расписанию
-    const channelRu = process.env.TELEGRAM_CHANNEL_RU;
-    if (channelRu) {
-      await this.sendToChannel('TELEGRAM_CHANNEL_RU', newsItem.text, newsItem.image);
+  async sendNews(item: NewsItem) {
+    if (!this.botToken || !this.chatId) {
+      console.error('Telegram: Не настроены TOKEN или CHAT_ID');
+      return;
     }
-  }
 
-  // Метод для обработки входящих сообщений (если есть)
-  async handleUpdate(update: any) {
-    return this.bot.handleUpdate(update);
-  }
+    // Текст уже отформатирован в AiService (HTML)
+    const caption = item.text;
 
-  async sendToChannel(channelKey: string, text: string, imageUrl?: string) {
-    const channelId = process.env[channelKey];
-    if (!channelId) return;
     try {
-      if (imageUrl) {
-        try {
-          await this.bot.telegram.sendPhoto(channelId, imageUrl, { caption: text, parse_mode: 'HTML' });
-        } catch (e) {
-          await this.bot.telegram.sendMessage(channelId, text, { parse_mode: 'HTML' });
-        }
+      if (item.image && item.image.startsWith('http')) {
+        // Если есть картинка, используем sendPhoto
+        await axios.post(`${this.apiUrl}/sendPhoto`, {
+          chat_id: this.chatId,
+          photo: item.image,
+          caption: caption,
+          parse_mode: 'HTML',
+        });
+        console.log('Новость отправлена с фото');
       } else {
-        await this.bot.telegram.sendMessage(channelId, text, { parse_mode: 'HTML' });
+        // Если картинки нет, шлем обычное сообщение
+        await axios.post(`${this.apiUrl}/sendMessage`, {
+          chat_id: this.chatId,
+          text: caption,
+          parse_mode: 'HTML',
+          disable_web_page_preview: false,
+        });
+        console.log('Новость отправлена без фото (текст)');
       }
-    } catch (err) {
-      console.error(`Error sending to ${channelKey}:`, err);
+    } catch (error) {
+      console.error('Ошибка отправки в Telegram:', error.response?.data || error.message);
+      
+      // Резервный вариант: если фото не прошло (например, битая ссылка), пробуем отправить хотя бы текст
+      if (item.image) {
+        try {
+          await axios.post(`${this.apiUrl}/sendMessage`, {
+            chat_id: this.chatId,
+            text: caption,
+            parse_mode: 'HTML',
+          });
+        } catch (retryError) {
+          console.error('Полный провал отправки:', retryError.message);
+        }
+      }
     }
   }
 }
