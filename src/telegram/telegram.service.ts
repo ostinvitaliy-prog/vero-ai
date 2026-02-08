@@ -1,5 +1,7 @@
+import { Injectable } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
 
+@Injectable()
 export class TelegramService {
   private bot: Telegraf;
 
@@ -7,7 +9,10 @@ export class TelegramService {
     this.bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
   }
 
-  async sendToChannel(channelId: string, text: string, imageUrl?: string) {
+  async sendToChannel(channelKey: string, text: string, imageUrl?: string) {
+    const channelId = process.env[channelKey];
+    if (!channelId) return;
+
     try {
       if (imageUrl) {
         try {
@@ -16,14 +21,13 @@ export class TelegramService {
             parse_mode: 'HTML'
           });
         } catch (e) {
-          console.error("Image error, sending text only");
           await this.bot.telegram.sendMessage(channelId, text, { parse_mode: 'HTML' });
         }
       } else {
         await this.bot.telegram.sendMessage(channelId, text, { parse_mode: 'HTML' });
       }
     } catch (err) {
-      console.error("Telegram send error:", err);
+      console.error(`Error sending to ${channelKey}:`, err);
     }
   }
 }
