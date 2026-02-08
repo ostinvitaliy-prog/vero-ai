@@ -9,34 +9,22 @@ export class AppService {
     private readonly telegramService: TelegramService,
   ) {}
 
-  async processNews(newsItem: any) {
-    const fullText = `${newsItem.title}\n\n${newsItem.text || ''}`;
-    const aiContent = await this.aiService.generatePost(fullText);
-    
-    await this.telegramService.sendNews({
-      ...newsItem,
-      text: aiContent,
-      priority: 'YELLOW'
-    }, 'RU');
-  }
-
   async testPost() {
     const mockNews = {
-      title: "Bitcoin Market Update",
-      text: "Биткоин закрепился выше уровня $95,000 на фоне высокого спроса со стороны институциональных инвесторов.",
+      title: "Bitcoin breaks $95k",
+      text: "Bitcoin price surged past $95,000 today driven by massive institutional inflows into spot ETFs.",
       link: "https://bits.media",
-      image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/800px-Bitcoin.svg.png"
+      image: "https://crypto.ru/wp-content/uploads/2021/11/bitcoin-v-dele.jpg" 
     };
 
-    // 1. Генерируем контент через ИИ
-    const ruContent = await this.aiService.generatePost(mockNews.text); 
+    // Генерируем RU
+    const ruContent = await this.aiService.generatePost(mockNews.text, 'RU'); 
+    await this.telegramService.sendNews({ ...mockNews, text: ruContent }, 'RU');
 
-    // 2. Отправляем в RU канал
-    await this.telegramService.sendNews({ ...mockNews, text: ruContent, priority: 'YELLOW' }, 'RU');
-
-    // 3. Отправляем в EN канал
-    await this.telegramService.sendNews({ ...mockNews, text: ruContent, priority: 'YELLOW' }, 'EN');
+    // Генерируем EN
+    const enContent = await this.aiService.generatePost(mockNews.text, 'EN');
+    await this.telegramService.sendNews({ ...mockNews, text: enContent }, 'EN');
     
-    return { status: 'Success', message: 'Тест запущен с корректной картинкой' };
+    return { status: 'Success', message: 'Каналы обновлены' };
   }
 }
