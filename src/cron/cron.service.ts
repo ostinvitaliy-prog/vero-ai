@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RssService } from '../rss/rss.service';
-import { AiService } from '../ai/ai.service';
+import { AiService, NewsItem } from '../ai/ai.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { DatabaseService } from '../database/database.service';
 import * as crypto from 'crypto-js';
@@ -23,7 +23,9 @@ export class CronService {
     const news = await this.rssService.getLatestNews();
     
     for (const item of news.slice(0, 3)) {
-      const link = item.link || item.guid;
+      const link = item.link || item.guid || '';
+      const title = item.title || 'No Title';
+      
       if (!link) continue;
 
       const newsHash = crypto.SHA256(link).toString();
@@ -33,19 +35,33 @@ export class CronService {
 
       if (!existing) {
         try {
-          const ruText = await this.aiService.generatePost(item, 'RU');
-          await this.telegramService.sendNews({ ...item, text: ruText, priority: 'YELLOW' }, 'RU');
+          const ruContent = await this.aiService.generatePost(item, 'RU');
+          const enContent = await this.aiService.generatePost(item, 'EN');
 
-          const enText = await this.aiService.generatePost(item, 'EN');
-          await this.telegramService.sendNews({ ...item, text: enText, priority: 'YELLOW' }, 'EN');
-
-          await this.databaseService.saveNews({
-            title: item.title,
+          const ruNews: NewsItem = {
+            title: title,
             link: link,
-            text: ruText,
+            text: ruContent,
             priority: 'YELLOW',
-            priorityReason: 'Auto-sync'
-          });
+            image: item.enclosure?.url || ''
+          };
+
+          const enNews: NewsItem = {
+            title: title,
+            link: link,
+            text: enContent,
+            priority: 'YELLOW',
+            image: item.enclosure?.url || ''
+          };
+
+          // Отправка
+          await this.telegramService.sendNews(ruNews, 'RU');
+          await this.telegramService.sendNews(enNews, 'EN');
+
+          // Сохранение
+          await this.databaseService.saveNews(ruNews);
+          
+          this.logger.log(`✅ Обработано: ${title}`);
         } catch (error) {
           this.logger.error(`Ошибка обработки: ${error.message}`);
         }
