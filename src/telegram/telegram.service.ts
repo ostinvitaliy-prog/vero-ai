@@ -1,71 +1,29 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Telegraf } from 'telegraf';
-import { AiService, NewsItem, Language } from '../ai/ai.service';
-import axios from 'axios';
 
-@Injectable()
 export class TelegramService {
-  private readonly logger = new Logger(TelegramService.name);
-  private readonly bot: Telegraf;
-  private readonly channelEn: string;
-  private readonly channelRu: string;
+  private bot: Telegraf;
 
-  private readonly fallbackImages = [
-    'https://images.unsplash.com/photo-1639762681485-074b7f938ba0',
-    'https://images.unsplash.com/photo-1518546305927-5a555bb7020d',
-    'https://images.unsplash.com/photo-1621416894569-0f39ed31d247',
-  ];
-
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly aiService: AiService,
-  ) {
-    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
-    this.bot = new Telegraf(token);
-    this.channelEn = this.configService.get<string>('TELEGRAM_CHANNEL_EN') || '';
-    this.channelRu = this.configService.get<string>('TELEGRAM_CHANNEL_RU') || '';
-
-    this.bot.launch();
-    this.logger.log('✅ Telegram bot launched');
+  constructor() {
+    this.bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
   }
 
-  async handleUpdate(update: any) {
-    this.logger.log('Received update:', JSON.stringify(update));
-  }
-
-  async postNews(news: NewsItem) {
-    const channels = [
-      { id: this.channelEn, lang: 'en' as Language },
-      { id: this.channelRu, lang: 'ru' as Language },
-    ];
-
-    for (const channel of channels) {
-      try {
-        const postHtml = this.aiService.formatTelegramPost(news, channel.lang);
-        const imageUrl = await this.resolveNewsImage(news.imageUrl);
-
-        await this.bot.telegram.sendPhoto(channel.id, imageUrl, {
-          caption: postHtml,
-          parse_mode: 'HTML',
-        });
-      } catch (error) {
-        this.logger.error(`Error posting to ${channel.id}:`, error);
-      }
-    }
-  }
-
-  private async resolveNewsImage(imageUrl?: string): Promise<string> {
-    if (!imageUrl) return this.getRandomFallback();
+  async sendToChannel(channelId: string, text: string, imageUrl?: string) {
     try {
-      const response = await axios.head(imageUrl, { timeout: 3000 });
-      return response.status === 200 ? imageUrl : this.getRandomFallback();
-    } catch {
-      return this.getRandomFallback();
+      if (imageUrl) {
+        try {
+          await this.bot.telegram.sendPhoto(channelId, imageUrl, {
+            caption: text,
+            parse_mode: 'HTML'
+          });
+        } catch (e) {
+          console.error("Image error, sending text only");
+          await this.bot.telegram.sendMessage(channelId, text, { parse_mode: 'HTML' });
+        }
+      } else {
+        await this.bot.telegram.sendMessage(channelId, text, { parse_mode: 'HTML' });
+      }
+    } catch (err) {
+      console.error("Telegram send error:", err);
     }
-  }
-
-  private getRandomFallback(): string {
-    return this.fallbackImages[Math.floor(Math.random() * this.fallbackImages.length)];
   }
 }
