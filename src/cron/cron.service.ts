@@ -54,11 +54,9 @@ export class CronService {
             image: item.enclosure?.url || ''
           };
 
-          // Отправка
           await this.telegramService.sendNews(ruNews, 'RU');
           await this.telegramService.sendNews(enNews, 'EN');
 
-          // Сохранение
           await this.databaseService.saveNews(ruNews);
           
           this.logger.log(`✅ Обработано: ${title}`);
