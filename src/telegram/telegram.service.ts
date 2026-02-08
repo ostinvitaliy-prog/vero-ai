@@ -9,26 +9,21 @@ export class TelegramService {
 
   async sendNews(item: NewsItem, lang: 'RU' | 'EN') {
     const chatId = lang === 'RU' ? process.env.TELEGRAM_CHANNEL_RU : process.env.TELEGRAM_CHANNEL_EN;
-    if (!chatId || !this.botToken) return console.error(`Config missing for ${lang}`);
+    if (!chatId || !this.botToken) return;
 
     try {
+      const payload = {
+        chat_id: chatId,
+        parse_mode: 'HTML',
+      };
+
       if (item.image && item.image.startsWith('http')) {
-        await axios.post(`${this.apiUrl}/sendPhoto`, {
-          chat_id: chatId,
-          photo: item.image,
-          caption: item.text,
-          parse_mode: 'HTML'
-        });
+        await axios.post(`${this.apiUrl}/sendPhoto`, { ...payload, photo: item.image, caption: item.text });
       } else {
-        await axios.post(`${this.apiUrl}/sendMessage`, {
-          chat_id: chatId,
-          text: item.text,
-          parse_mode: 'HTML'
-        });
+        await axios.post(`${this.apiUrl}/sendMessage`, { ...payload, text: item.text });
       }
-      console.log(`✅ Success: Sent to ${lang} channel`);
     } catch (e) {
-      console.error(`❌ Fail ${lang}:`, e.response?.data || e.message);
+      console.error(`Telegram Error (${lang}):`, e.response?.data || e.message);
     }
   }
 }
