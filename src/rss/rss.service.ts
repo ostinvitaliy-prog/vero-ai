@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Parser from 'rss-parser';
-import * as crypto from 'crypto-js';
 import { NewsItem } from '../ai/ai.service';
 
 @Injectable()
@@ -8,15 +7,15 @@ export class RssService {
   private readonly logger = new Logger(RssService.name);
   private readonly parser: Parser;
 
-  private readonly rssSources = [
+  private readonly feeds = [
     'https://cointelegraph.com/rss',
-    'https://decrypt.co/feed',
     'https://cryptopotato.com/feed/',
-    'https://bitcoinist.com/feed/',
+    'https://cryptoslate.com/feed/',
+    'https://decrypt.co/feed',
+    'https://www.coindesk.com/arc/outboundfeeds/rss/',
+    'https://bitcoinmagazine.com/.rss/full/',
     'https://cryptonews.com/news/feed/',
     'https://u.today/rss',
-    'https://cryptoslate.com/feed/',
-    'https://www.newsbtc.com/feed/',
     'https://ambcrypto.com/feed/',
   ];
 
@@ -28,20 +27,21 @@ export class RssService {
   async fetchAllNews(): Promise<NewsItem[]> {
     const allNews: NewsItem[] = [];
 
-    for (const source of this.rssSources) {
+    for (const feedUrl of this.feeds) {
       try {
-        const feed = await this.parser.parseURL(source);
-        const items = feed.items.slice(0, 10).map((item) => ({
+        const feed = await this.parser.parseURL(feedUrl);
+        const items: NewsItem[] = feed.items.map((item) => ({
           title: item.title || 'No title',
           link: item.link || '',
           content: item.contentSnippet || item.content || '',
-          pubDate: new Date(item.pubDate || Date.now()),
-          source: feed.title || source,
+          pubDate: item.pubDate || new Date().toISOString(),
+          source: feed.title || feedUrl,
           imageUrl: item.enclosure?.url || undefined,
         }));
+
         allNews.push(...items);
       } catch (error) {
-        this.logger.error(`Error fetching ${source}:`, error.message);
+        this.logger.error(`Error fetching ${feedUrl}:`, error.message);
       }
     }
 
