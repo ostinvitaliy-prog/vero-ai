@@ -19,52 +19,57 @@ export class AiService {
     if (!this.apiKey) return 'API Key Missing';
 
     const prompt = lang === 'RU'
-      ? `Напиши профессиональный аналитический пост на РУССКОМ. Дай максимум мяса и цифр. 
+      ? `ТЫ — КРИПТО-АНАЛИТИК. ПИШИ ТОЛЬКО ПРАВДУ. Если в новости указана цена BTC $95k, а ты знаешь, что сейчас рынок в районе $70k — исправь это или пиши осторожно.
          
+         СТРОГО: Текст сообщения должен быть информативным, но НЕ ПРЕВЫШАТЬ 900 символов (это критично для Telegram).
+         
+         ФОРМАТ:
          🟢 <b>ЗАГОЛОВОК КАПСОМ</b> 🚀
          
-         (Развернутый текст новости, 6-8 предложений. Опиши контекст, причины и текущую ситуацию на рынке)
+         (Суть новости: 4-5 мощных предложений)
          
          💡 <b>VERO AI SUMMARY:</b>
-         (Глубокий экспертный вывод о том, что это значит для индустрии в долгосроке)
+         (Экспертный вывод)
          
          ⚠️ <b>ЧЕГО ЖДАТЬ РЫНКУ:</b>
-         • (Конкретный прогноз 1)
-         • (Конкретный прогноз 2)
-         • (Конкретный прогноз 3)
+         • (Пункт 1)
+         • (Пункт 2)
          
-         🔗 <b>Источник:</b> <a href="${item.link || '#'}">Читать оригинал в источнике</a>
+         🔗 <b>Источник:</b> <a href="${item.link || '#'}">Читать оригинал</a>
          
-         #BTC #Crypto #Web3 #Blockchain #DeFi #Analytics`
-      : `Write a comprehensive professional analytical post in ENGLISH.
+         #BTC #Crypto #Web3 #Blockchain`
+      : `YOU ARE A CRYPTO ANALYST. BE ACCURATE. Do not hallucinate prices.
          
+         STRICT: Text must be informative but UNDER 900 characters (critical for Telegram photo caption).
+         
+         FORMAT:
          🟢 <b>HEADER IN CAPS</b> 🚀
          
-         (Detailed news analysis, 6-8 sentences. Cover context, drivers, and market status)
+         (News essence: 4-5 powerful sentences)
          
          💡 <b>VERO AI SUMMARY:</b>
-         (In-depth expert takeaway on long-term industry impact)
+         (Analytical takeaway)
          
          ⚠️ <b>MARKET EXPECTATIONS:</b>
-         • (Specific prediction 1)
-         • (Specific prediction 2)
-         • (Specific prediction 3)
+         • (Point 1)
+         • (Point 2)
          
-         🔗 <b>Source:</b> <a href="${item.link || '#'}">Read original article</a>
+         🔗 <b>Source:</b> <a href="${item.link || '#'}">Read original</a>
          
-         #BTC #Crypto #Web3 #Blockchain #DeFi #Analytics`;
+         #BTC #Crypto #Web3 #Blockchain`;
 
     try {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: "Senior Crypto Analyst. Focus on length, professional insights, and HTML formatting." },
-          { role: "user", content: `SOURCE DATA:\n${item.title}\n${item.content || item.text}\n\nTASK:\n${prompt}` }
+          { role: "system", content: "Senior Crypto Analyst. Accuracy is key. Strictly under 900 chars. HTML only." },
+          { role: "user", content: `DATA:\n${item.title}\n${item.content || item.text}\n\nTASK:\n${prompt}` }
         ],
-        temperature: 0.3
+        temperature: 0.1
       }, { headers: { 'Authorization': `Bearer ${this.apiKey}` } });
 
-      return response.data.choices[0].message.content.replace(/\*\*/g, ''); 
+      let content = response.data.choices[0].message.content.replace(/\*\*/g, '');
+      return content.length > 1000 ? content.substring(0, 950) + '...' : content;
     } catch (error) {
       return `Error generating text: ${error.message}`;
     }
