@@ -7,8 +7,9 @@ export class RssService {
 
   async getLatestNews() {
     const feeds = [
-      'https://bits.media/rss2/',
-      'https://forklog.com/feed/'
+      'https://cryptopanic.com/news/rss/',
+      'https://cointelegraph.com/rss',
+      'https://bits.media/rss2/'
     ];
 
     try {
@@ -18,7 +19,6 @@ export class RssService {
         allNews.push(...feed.items);
       }
       
-      // Исправляем ошибку типизации даты для билда
       return allNews.sort((a, b) => {
         const dateB = new Date(b.pubDate || new Date()).getTime();
         const dateA = new Date(a.pubDate || new Date()).getTime();
