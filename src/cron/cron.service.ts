@@ -86,6 +86,7 @@ export class CronService implements OnApplicationBootstrap {
         return;
       }
 
+      // ранжируем: RED > YELLOW > GREEN
       const priorityRank: Record<string, number> = {
         RED: 3,
         YELLOW: 2,
@@ -98,13 +99,12 @@ export class CronService implements OnApplicationBootstrap {
 
       const best = candidates[0];
 
-      if (!best || (best.priority !== 'RED' && best.priority !== 'YELLOW')) {
-        this.logger.log(
-          `📭 Best news priority is ${best?.priority || 'NONE'}, nothing to post.`,
-        );
+      if (!best) {
+        this.logger.log('📭 No best candidate found.');
         return;
       }
 
+      // ВАЖНО: теперь постим ЛЮБУЮ лучшую, даже если она GREEN
       this.logger.log(
         `📤 Posting ${best.priority} news: ${best.item.title.slice(0, 80)}...`,
       );
