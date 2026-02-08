@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 
+export type Language = 'en' | 'ru';
+
 export interface NewsItem {
   title: string;
   link: string;
@@ -23,45 +25,60 @@ export class AiService {
   constructor(private configService: ConfigService) {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),
-      baseURL: 'https://routellm.abacus.ai/v1', // Твой RouteLLM
+      baseURL: 'https://routellm.abacus.ai/v1',
     });
   }
 
-  async analyzeNewsUnified(item: NewsItem): Promise<any> {
+  async analyzeNewsUnified(item: NewsItem): Promise<NewsItem> {
     try {
       const prompt = `
         Analyze this crypto news and return JSON ONLY.
-        Format:
         {
           "priority": "RED" | "YELLOW" | "GREEN",
           "priorityReason": "short reason",
-          "postEn": "English telegram post text with emojis",
-          "postRu": "Russian telegram post text with emojis"
+          "postEn": "English telegram text with emojis",
+          "postRu": "Russian telegram text with emojis"
         }
 
-        News Title: ${item.title}
+        Title: ${item.title}
         Content: ${item.content}
       `;
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini', // или твой рабочий конфиг
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
       });
 
       const result = JSON.parse(response.choices[0].message.content);
-      
-      // Логируем для проверки, что пришло не undefined
-      this.logger.log(`AI Result for ${item.title.slice(0,30)}: ${result.priority}`);
-      
-      return result;
+
+      item.priority = result.priority;
+      item.priorityReason = result.priorityReason;
+      item.postEn = result.postEn;
+      item.postRu = result.postRu;
+
+      return item;
+
     } catch (e) {
-      this.logger.error('AI Analysis failed', e);
-      return {
-        priority: 'GREEN',
-        postEn: item.title,
-        postRu: item.title
-      };
+      this.logger.error('AI error:', e);
+
+      item.priority = 'GREEN';
+      item.postEn = item.title;
+      item.postRu = item.title;
+
+      return item;
     }
+  }
+
+  formatTelegramPost(news: NewsItem, lang: Language): string {
+    const text = lang === 'en' ? news.postEn : news.postRu;
+
+    return `
+<b>${news.title}</b>
+
+${text}
+
+<a href="${news.link}">Source</a>
+    `.trim();
   }
 }
