@@ -73,7 +73,7 @@ export class CronService implements OnApplicationBootstrap {
 
         candidates.push({
           item: analyzedItem,
-          priority: analyzedItem.priority,
+          priority: analyzedItem.priority || 'GREEN',
           priorityReason: analyzedItem.priorityReason,
         });
       }
