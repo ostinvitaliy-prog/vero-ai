@@ -16,25 +16,22 @@ export class CronService {
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async handleCron() {
-    // В твоем RssService метод называется getNews, а не fetchNews
-    const news = await this.rssService.getNews(); 
+    // Возвращаем fetchNews (как было в твоих первых логах)
+    const news = await this.rssService.fetchNews(); 
     
     for (const item of news) {
-      // Проверяем существование новости напрямую через prisma в DatabaseService
-      const exists = await this.databaseService.news.findUnique({
-        where: { link: item.link }
-      });
+      // Используем метод saveNews для проверки или обертку prisma, если она доступна
+      // Если DatabaseService не имеет метода newsExists, билд упадет. 
+      // Самый безопасный вариант — проверить через существующий метод поиска в твоем сервисе.
+      const exists = await this.databaseService.getNewsByLink(item.link);
 
       if (!exists) {
-        // 1. Пост для RU канала
         const ruText = await this.aiService.generatePost(item, 'RU');
         await this.telegramService.sendNews({ ...item, text: ruText, priority: 'YELLOW' }, 'RU');
 
-        // 2. Пост для EN канала
         const enText = await this.aiService.generatePost(item, 'EN');
         await this.telegramService.sendNews({ ...item, text: enText, priority: 'YELLOW' }, 'EN');
 
-        // 3. Сохранение
         await this.databaseService.saveNews({ ...item, text: ruText, priority: 'YELLOW' });
       }
     }
