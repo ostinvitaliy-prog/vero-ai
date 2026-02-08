@@ -7,6 +7,7 @@ export interface NewsItem {
   title: string;
   image?: string;
   priority: 'RED' | 'YELLOW' | 'GREEN';
+  priorityReason?: string; // Возвращаем для DatabaseService
 }
 
 @Injectable()
@@ -19,32 +20,30 @@ export class AiService {
 
     const prompt = lang === 'RU' 
       ? `Ты — редактор Vero AI. Сделай СТИЛЬНЫЙ и КРАТКИЙ пост.
-         СТРУКТУРА (строго до 900 символов):
+         СТРУКТУРА (строго до 800 символов):
          1. 🟢/🟡/🔴 <b>ЗАГОЛОВОК КАПСОМ</b> 🚀
-         2. 📝 <b>СУТЬ:</b> (2-3 коротких предложения с эмодзи в тексте)
-         3. 💡 <b>Vero AI Summary:</b> (главный вывод)
+         2. 📝 <b>СУТЬ:</b> (коротко с эмодзи)
+         3. 💡 <b>Vero AI Summary:</b> (вывод)
          4. 📉 <b>Прогноз:</b>
             • Пункт 1
-            • Пункт 2
-         5. #BTC #Крипто #Новости`
-      : `You are Vero AI Editor. Create a STYLISH and CONCISE post in ENGLISH.
-         STRUCTURE (strict under 900 chars):
+         5. #BTC #Крипто`
+      : `You are Vero AI Editor. Create a STYLISH post in ENGLISH.
+         STRUCTURE (under 800 chars):
          1. 🟢/🟡/🔴 <b>HEADER IN CAPS</b> 🚀
-         2. 📝 <b>CORE:</b> (2-3 short sentences with emojis)
-         3. 💡 <b>Vero AI Summary:</b> (key takeaway)
+         2. 📝 <b>CORE:</b> (short with emojis)
+         3. 💡 <b>Vero AI Summary:</b> (takeaway)
          4. 📉 <b>Impact:</b>
             • Point 1
-            • Point 2
-         5. #Crypto #BTC #News`;
+         5. #Crypto #BTC`;
 
     try {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: `You are a crypto journalist. Use HTML (<b>). Max 900 chars. Language: ${lang}` },
-          { role: "user", content: `SOURCE TEXT:\n${newsText}\n\nINSTRUCTION:\n${prompt}` }
+          { role: "system", content: `Crypto journalist. HTML (<b>) only. Max 800 chars. Language: ${lang}` },
+          { role: "user", content: `SOURCE:\n${newsText}\n\nINSTRUCTION:\n${prompt}` }
         ],
-        temperature: 0.2
+        temperature: 0.1
       }, {
         headers: { 'Authorization': `Bearer ${this.apiKey}` }
       });
@@ -53,5 +52,21 @@ export class AiService {
     } catch (error) {
       return `AI Error: ${error.message}`;
     }
+  }
+
+  // Восстанавливаем метод, который ищет CronService
+  async analyzeNewsUnified(item: any): Promise<NewsItem> {
+    const imageUrl = item.image || item.enclosure?.url || '';
+    const fullText = `${item.title}\n\n${item.content || ''}`;
+    const processedText = await this.generatePost(fullText, 'RU');
+    
+    return { 
+      title: item.title || '',
+      link: item.link || '',
+      text: processedText, 
+      image: imageUrl, 
+      priority: 'YELLOW',
+      priorityReason: 'Market update' 
+    };
   }
 }
