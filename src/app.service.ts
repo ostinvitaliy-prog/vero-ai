@@ -9,21 +9,29 @@ export class AppService {
     private readonly telegramService: TelegramService,
   ) {}
 
+  // Этот метод теперь называется так, как его ищет твой контроллер
+  async processNews(newsItem: any) {
+    const fullText = `${newsItem.title}\n\n${newsItem.text || ''}`;
+    const aiContent = await this.aiService.generatePost(fullText);
+    
+    await this.telegramService.sendNews({
+      ...newsItem,
+      text: aiContent,
+      priority: 'YELLOW'
+    });
+  }
+
+  // Метод для ручного теста через /test/post
   async testPost() {
     const mockNews = {
-      text: "Биткоин показывает стабильность выше $95,000, пока институционалы наращивают позиции в ETF.",
-      title: "Рынок BTC сегодня",
+      title: "Биткоин закрепился выше важного уровня",
+      text: "Институциональные инвесторы продолжают накапливать активы, что создает дефицит предложения на биржах.",
       link: "https://bits.media",
       image: "https://bits.media/upload/iblock/789/btc_crypto.jpg"
     };
 
-    const content = await this.aiService.generatePost(mockNews.text);
-    await this.telegramService.sendNews({
-      ...mockNews,
-      text: content,
-      priority: 'YELLOW'
-    });
+    await this.processNews(mockNews);
     
-    return { status: 'Success', message: 'Test news sent to Telegram' };
+    return { status: 'Success', message: 'Тестовая новость отправлена' };
   }
 }
