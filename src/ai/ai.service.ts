@@ -6,12 +6,7 @@ export interface NewsItem {
   link: string;
   title: string;
   image?: string;
-  url?: string;
   priority: 'RED' | 'YELLOW' | 'GREEN';
-  priorityReason?: string;
-  source?: string;
-  content?: string;
-  pubDate?: string;
 }
 
 @Injectable()
@@ -23,66 +18,39 @@ export class AiService {
     if (!this.apiKey) return 'Ошибка: API ключ не найден';
 
     const prompt = `
-      Ты — ведущий крипто-аналитик Vero AI. Оформи новость строго по шаблону.
+      Ты — редактор Vero AI. Оформи новость строго по шаблону. 
+      ВАЖНО: Общий объем текста не должен превышать 800 символов.
       
-      ШАБЛОН:
-      1. ПЕРВАЯ СТРОКА: Выбери эмодзи (🔴 если крах/взлом/паника, 🟡 если важные анонсы/ETF/суды, 🟢 если позитив/рост) + <b>ЗАГОЛОВОК КАПСОМ</b> + 🚀
+      1. ЗАГОЛОВОК: [Эмодзи приоритета 🔴/🟡/🟢] <b>ЗАГОЛОВОК КАПСОМ</b>
+      2. ТЕКСТ: 2 коротких абзаца.
+      3. SUMMARY: 💡 <b>VERO AI SUMMARY:</b> (1 предложение)
+      4. ПРОГНОЗ: ⚠️ <b>МОЖЕТ ПРИВЕСТИ К:</b> (2 пункта)
+      5. ХЭШТЕГИ: #BTC #Крипто
       
-      2. ТЕКСТ: 2-3 коротких абзаца с фактами. Важные цифры (цены, проценты) выдели <b>жирным</b>. 
-         ВНИМАНИЕ: Используй только те данные, которые есть в тексте. Не выдумывай текущие курсы!
-      
-      3. РАЗДЕЛИТЕЛЬ: --- (три тире)
-      
-      4. БЛОК АНАЛИТИКИ: 💡 <b>VERO AI SUMMARY:</b> объясни простыми словами, почему это важно для рынка.
-      
-      5. БЛОК ПРОГНОЗА: ⚠️ <b>МОЖЕТ ПРИВЕСТИ К:</b> дай 2-3 четких пункта.
-      
-      6. РАЗДЕЛИТЕЛЬ: ---
-      
-      7. ИНТЕРАКТИВ: 💬 <b>А что об этом думаете вы? Пишите в комментариях!</b> 👇
-      
-      8. ХЭШТЕГИ: 3-5 штук (например, #BTC #Крипто #Новости)
-      
-      ПРАВИЛА: Используй ТОЛЬКО HTML (<b>, <a>). Никаких Markdown звездочек (**). Между всеми блоками делай двойной перенос строки.
+      Используй только HTML (<b>, <a>).
     `;
 
     try {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: "You are a professional news editor. Output ONLY clean HTML. Do not invent information. Follow the emoji priority logic." },
-          { role: "user", content: `ТЕКСТ ДЛЯ ОБРАБОТКИ:\n${newsText}\n\nИНСТРУКЦИЯ:\n${prompt}` }
+          { role: "system", content: "Professional editor. Strict 800 chars limit. HTML only." },
+          { role: "user", content: `ТЕКСТ:\n${newsText}\n\nИНСТРУКЦИЯ:\n${prompt}` }
         ],
-        temperature: 0 // Полное отсутствие галлюцинаций
+        temperature: 0
       }, {
-        headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' }
+        headers: { 'Authorization': `Bearer ${this.apiKey}` }
       });
 
-      let result = response.data.choices[0].message.content;
-      return result.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'); 
+      return response.data.choices[0].message.content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'); 
     } catch (error) {
-      return `Ошибка генерации: ${error.message}`;
+      return `Ошибка ИИ: ${error.message}`;
     }
   }
 
   async analyzeNewsUnified(item: any): Promise<NewsItem> {
-    // Ищем картинку в разных стандартах RSS (enclosure, media:content, meta)
-    const imageUrl = item.image || 
-                     item.enclosure?.url || 
-                     (item['media:content'] ? item['media:content']['@_url'] : '') || 
-                     item.meta?.image || '';
-
-    const fullText = `${item.title}\n\n${item.content || item.text || ''}`;
-    const processedText = await this.generatePost(fullText);
-
-    // Определяем приоритет для объекта (базово ставим YELLOW, ИИ сам поставит нужный эмодзи в текст)
-    return { 
-      ...item, 
-      text: processedText, 
-      link: item.link || item.url || '', 
-      title: item.title || '',
-      image: imageUrl,
-      priority: 'YELLOW' 
-    };
+    const imageUrl = item.image || item.enclosure?.url || '';
+    const processedText = await this.generatePost(`${item.title}\n\n${item.content || ''}`);
+    return { ...item, text: processedText, image: imageUrl, priority: 'YELLOW' };
   }
 }
