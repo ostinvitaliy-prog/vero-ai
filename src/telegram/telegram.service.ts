@@ -30,10 +30,6 @@ export class TelegramService {
     this.logger.log('✅ Telegram bot launched');
   }
 
-  async handleUpdate(update: any) {
-    this.logger.log('Received update:', JSON.stringify(update));
-  }
-
   async postNews(news: NewsItem) {
     const channels = [
       { id: this.channelEn, lang: 'en' as Language },
@@ -49,8 +45,6 @@ export class TelegramService {
           caption: postHtml,
           parse_mode: 'HTML',
         });
-
-        this.logger.log(`✅ Posted to ${channel.id} (${channel.lang})`);
       } catch (error) {
         this.logger.error(`Error posting to ${channel.id}:`, error);
       }
@@ -58,20 +52,13 @@ export class TelegramService {
   }
 
   private async resolveNewsImage(imageUrl?: string): Promise<string> {
-    if (!imageUrl) {
-      return this.getRandomFallback();
-    }
-
+    if (!imageUrl) return this.getRandomFallback();
     try {
       const response = await axios.head(imageUrl, { timeout: 3000 });
-      if (response.status === 200) {
-        return imageUrl;
-      }
-    } catch (error) {
-      this.logger.warn(`Image validation failed for ${imageUrl}`);
+      return response.status === 200 ? imageUrl : this.getRandomFallback();
+    } catch {
+      return this.getRandomFallback();
     }
-
-    return this.getRandomFallback();
   }
 
   private getRandomFallback(): string {
