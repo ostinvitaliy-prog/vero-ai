@@ -23,11 +23,14 @@ export class AiService {
   private openai: OpenAI;
 
   constructor(private configService: ConfigService) {
-    // Берем ключ напрямую из env, если ConfigService еще не прогрузился
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY') || process.env.OPENAI_API_KEY;
+    // Проверяем оба варианта названия ключа
+    const apiKey = this.configService.get<string>('ABACUSAI_API_KEY') || 
+                   this.configService.get<string>('OPENAI_API_KEY') ||
+                   process.env.ABACUSAI_API_KEY ||
+                   process.env.OPENAI_API_KEY;
     
     if (!apiKey) {
-      this.logger.error('❌ OPENAI_API_KEY is missing in environment variables!');
+      this.logger.error('❌ API KEY is missing in Render Environment Variables!');
     }
 
     this.openai = new OpenAI({
@@ -78,6 +81,9 @@ export class AiService {
 
   formatTelegramPost(news: NewsItem, lang: Language): string {
     const text = lang === 'en' ? news.postEn : news.postRu;
-    return `<b>${news.title}</b>\n\n${text}\n\n<a href="${news.link}">Source</a>`.trim();
+    // Убираем лишние пробелы и undefined
+    const cleanText = text || news.title;
+    
+    return `<b>${news.title}</b>\n\n${cleanText}\n\n<a href="${news.link}">Source</a>`.trim();
   }
 }
