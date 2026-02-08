@@ -19,60 +19,59 @@ export class AiService {
     if (!this.apiKey) return 'API Key Missing';
 
     const prompt = lang === 'RU'
-      ? `Оформи аналитическую новость на РУССКОМ.
+      ? `Напиши профессиональный аналитический пост на РУССКОМ. Дай максимум мяса и цифр. 
+         
          🟢 <b>ЗАГОЛОВОК КАПСОМ</b> 🚀
          
-         (Подробный текст, 4-5 предложений с фактами)
+         (Развернутый текст новости, 6-8 предложений. Опиши контекст, причины и текущую ситуацию на рынке)
          
          💡 <b>VERO AI SUMMARY:</b>
-         (Экспертный вывод)
+         (Глубокий экспертный вывод о том, что это значит для индустрии в долгосроке)
          
-         ⚠️ <b>МОЖЕТ ПРИВЕСТИ К:</b>
-         • (Пункт 1)
-         • (Пункт 2)
+         ⚠️ <b>ЧЕГО ЖДАТЬ РЫНКУ:</b>
+         • (Конкретный прогноз 1)
+         • (Конкретный прогноз 2)
+         • (Конкретный прогноз 3)
          
-         🔗 <b>Источник:</b> <a href="${item.link || '#'}">Читать оригинал</a>
+         🔗 <b>Источник:</b> <a href="${item.link || '#'}">Читать оригинал в источнике</a>
          
-         #BTC #Crypto #Web3 #Blockchain`
-      : `Analyze and format news in ENGLISH.
+         #BTC #Crypto #Web3 #Blockchain #DeFi #Analytics`
+      : `Write a comprehensive professional analytical post in ENGLISH.
+         
          🟢 <b>HEADER IN CAPS</b> 🚀
          
-         (Detailed news text, 4-5 sentences)
+         (Detailed news analysis, 6-8 sentences. Cover context, drivers, and market status)
          
          💡 <b>VERO AI SUMMARY:</b>
-         (Analytical takeaway)
+         (In-depth expert takeaway on long-term industry impact)
          
-         ⚠️ <b>MAY LEAD TO:</b>
-         • (Point 1)
-         • (Point 2)
+         ⚠️ <b>MARKET EXPECTATIONS:</b>
+         • (Specific prediction 1)
+         • (Specific prediction 2)
+         • (Specific prediction 3)
          
-         🔗 <b>Source:</b> <a href="${item.link || '#'}">Read original</a>
+         🔗 <b>Source:</b> <a href="${item.link || '#'}">Read original article</a>
          
-         #BTC #Crypto #Web3 #Blockchain`;
+         #BTC #Crypto #Web3 #Blockchain #DeFi #Analytics`;
 
     try {
       const response = await axios.post(this.apiUrl, {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: "Senior Crypto Analyst. HTML only. Crypto hashtags only." },
-          { role: "user", content: `DATA:\n${item.title}\n${item.content || item.text}\n\nTASK:\n${prompt}` }
+          { role: "system", content: "Senior Crypto Analyst. Focus on length, professional insights, and HTML formatting." },
+          { role: "user", content: `SOURCE DATA:\n${item.title}\n${item.content || item.text}\n\nTASK:\n${prompt}` }
         ],
-        temperature: 0.2
+        temperature: 0.3
       }, { headers: { 'Authorization': `Bearer ${this.apiKey}` } });
 
       return response.data.choices[0].message.content.replace(/\*\*/g, ''); 
     } catch (error) {
-      return `Error: ${error.message}`;
+      return `Error generating text: ${error.message}`;
     }
   }
 
   async analyzeNewsUnified(item: any): Promise<NewsItem> {
     const text = await this.generatePost(item, 'RU');
-    return { 
-      title: item.title || 'No title', 
-      link: item.link || '', 
-      text: text, 
-      priority: 'YELLOW' 
-    };
+    return { title: item.title || 'No title', link: item.link || '', text, priority: 'YELLOW' };
   }
 }
