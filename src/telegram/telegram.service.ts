@@ -7,34 +7,29 @@ export class TelegramService {
   private readonly botToken = process.env.TELEGRAM_BOT_TOKEN;
   private readonly apiUrl = `https://api.telegram.org/bot${this.botToken}`;
 
-  async sendNews(item: NewsItem, lang: 'RU' | 'EN' = 'RU') {
-    if (!this.botToken) return;
-
-    const chatId = lang === 'RU' 
-      ? process.env.TELEGRAM_CHANNEL_RU 
-      : process.env.TELEGRAM_CHANNEL_EN;
-
-    if (!chatId) return;
+  async sendNews(item: NewsItem, lang: 'RU' | 'EN') {
+    const chatId = lang === 'RU' ? process.env.TELEGRAM_CHANNEL_RU : process.env.TELEGRAM_CHANNEL_EN;
+    if (!chatId || !this.botToken) return console.error('Config missing');
 
     try {
-      // Всегда шлем фото с подписью. AI в AiService теперь ограничен 800 символами, так что влезет всегда.
+      // Пытаемся отправить фото с подписью. Если фото не грузится — шлем только текст.
       if (item.image && item.image.startsWith('http')) {
         await axios.post(`${this.apiUrl}/sendPhoto`, {
           chat_id: chatId,
           photo: item.image,
           caption: item.text,
-          parse_mode: 'HTML',
+          parse_mode: 'HTML'
         });
       } else {
         await axios.post(`${this.apiUrl}/sendMessage`, {
           chat_id: chatId,
           text: item.text,
-          parse_mode: 'HTML',
+          parse_mode: 'HTML'
         });
       }
-      console.log(`Sent to ${lang}`);
-    } catch (error) {
-      console.error(`Error ${lang}:`, error.response?.data || error.message);
+      console.log(`Success ${lang}`);
+    } catch (e) {
+      console.error(`Fail ${lang}:`, e.response?.data || e.message);
     }
   }
 }
