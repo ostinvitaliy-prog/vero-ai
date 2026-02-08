@@ -7,7 +7,7 @@ export interface NewsItem {
   title: string;
   image?: string;
   url?: string;
-  priority?: string;
+  priority: 'RED' | 'YELLOW' | 'GREEN'; // Строгий тип
   priorityReason?: string;
   source?: string;
   content?: string;
@@ -35,7 +35,6 @@ export class AiService {
     return completion.choices[0].message.content;
   }
 
-  // Этот метод требует твой cron.service.ts
   async analyzeNewsUnified(item: any): Promise<NewsItem> {
     const summary = await this.generatePost(item.content || item.text || '', 'RU');
     return {
@@ -43,7 +42,7 @@ export class AiService {
       text: summary || '',
       link: item.link || item.url || '',
       title: item.title || '',
-      priority: 'GREEN'
+      priority: (item.priority as 'RED' | 'YELLOW' | 'GREEN') || 'GREEN'
     };
   }
 }
