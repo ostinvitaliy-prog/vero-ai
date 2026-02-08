@@ -62,7 +62,7 @@ export class AiService {
 
       return response.data.choices[0].message.content.replace(/\*\*/g, ''); 
     } catch (error) {
-      return `Error generating text: ${error.message}`;
+      return `Error: ${error.message}`;
     }
   }
 
