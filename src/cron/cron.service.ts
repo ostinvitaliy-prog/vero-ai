@@ -19,7 +19,7 @@ export class CronService {
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async handleCron() {
-    this.logger.log('🔄 Синхронизация...');
+    this.logger.log('🔄 Starting sync cycle...');
     const news = await this.rssService.getLatestNews();
     
     for (const item of news.slice(0, 3)) {
@@ -33,26 +33,36 @@ export class CronService {
 
       if (!existing) {
         try {
+          // Генерация контента
           const ruContent = await this.aiService.generatePost(item, 'RU');
           const enContent = await this.aiService.generatePost(item, 'EN');
 
           const ruNews: NewsItem = {
-            title: item.title || '', link: link, text: ruContent, priority: 'YELLOW',
+            title: item.title || '',
+            link: link,
+            text: ruContent,
+            priority: 'YELLOW',
             image: item.enclosure?.url || ''
           };
 
           const enNews: NewsItem = {
-            title: item.title || '', link: link, text: enContent, priority: 'YELLOW',
+            title: item.title || '',
+            link: link,
+            text: enContent,
+            priority: 'YELLOW',
             image: item.enclosure?.url || ''
           };
 
+          // Отправка в каналы
           await this.telegramService.sendNews(ruNews, 'RU');
           await this.telegramService.sendNews(enNews, 'EN');
+
+          // Сохранение факта отправки
           await this.databaseService.saveNews(ruNews);
           
-          this.logger.log(`✅ Пост опубликован: ${item.title}`);
+          this.logger.log(`✅ Successfully processed: ${item.title}`);
         } catch (error) {
-          this.logger.error(`Ошибка: ${error.message}`);
+          this.logger.error(`❌ Process error: ${error.message}`);
         }
       }
     }
