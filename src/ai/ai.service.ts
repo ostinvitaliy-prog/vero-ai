@@ -23,8 +23,15 @@ export class AiService {
   private openai: OpenAI;
 
   constructor(private configService: ConfigService) {
+    // Берем ключ напрямую из env, если ConfigService еще не прогрузился
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY') || process.env.OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      this.logger.error('❌ OPENAI_API_KEY is missing in environment variables!');
+    }
+
     this.openai = new OpenAI({
-      apiKey: this.configService.get<string>('OPENAI_API_KEY'),
+      apiKey: apiKey || 'missing', 
       baseURL: 'https://routellm.abacus.ai/v1',
     });
   }
@@ -62,24 +69,15 @@ export class AiService {
 
     } catch (e) {
       this.logger.error('AI error:', e);
-
       item.priority = 'GREEN';
       item.postEn = item.title;
       item.postRu = item.title;
-
       return item;
     }
   }
 
   formatTelegramPost(news: NewsItem, lang: Language): string {
     const text = lang === 'en' ? news.postEn : news.postRu;
-
-    return `
-<b>${news.title}</b>
-
-${text}
-
-<a href="${news.link}">Source</a>
-    `.trim();
+    return `<b>${news.title}</b>\n\n${text}\n\n<a href="${news.link}">Source</a>`.trim();
   }
 }
