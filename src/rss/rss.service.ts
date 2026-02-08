@@ -5,9 +5,7 @@ import Parser from 'rss-parser';
 export class RssService {
   private parser = new Parser();
 
-  // Мы даем методу именно то имя, которое ищет CronService
   async getLatestNews() {
-    // Список твоих источников
     const feeds = [
       'https://bits.media/rss2/',
       'https://forklog.com/feed/'
@@ -20,10 +18,12 @@ export class RssService {
         allNews.push(...feed.items);
       }
       
-      // Сортируем по дате, чтобы в начале были самые свежие
-      return allNews.sort((a, b) => 
-        new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
-      );
+      // Исправляем ошибку типизации даты для билда
+      return allNews.sort((a, b) => {
+        const dateB = new Date(b.pubDate || new Date()).getTime();
+        const dateA = new Date(a.pubDate || new Date()).getTime();
+        return dateB - dateA;
+      });
     } catch (error) {
       console.error('RSS Parsing Error:', error);
       return [];
