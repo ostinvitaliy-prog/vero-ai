@@ -30,6 +30,10 @@ export class TelegramService {
     this.logger.log('✅ Telegram bot launched');
   }
 
+  async handleUpdate(update: any) {
+    this.logger.log('Received update:', JSON.stringify(update));
+  }
+
   async postNews(news: NewsItem) {
     const channels = [
       { id: this.channelEn, lang: 'en' as Language },
@@ -62,6 +66,6 @@ export class TelegramService {
   }
 
   private getRandomFallback(): string {
-    return this.fallbackImages[Math.floor(Math.random() * this.fallbackImages.length)];
+    return this.fallbackImages[Math.floor(Math.random()  this.fallbackImages.length)];
   }
 }
